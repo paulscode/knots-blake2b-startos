@@ -1,13 +1,13 @@
 import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
 
 export const current = VersionInfo.of({
-  version: '1.0.0:8',
+  version: '1.0.0:9',
   releaseNotes: {
-    en_US: 'Add a Get Payout Address action, so an address can be obtained without a shell.',
-    es_ES: 'Add a Get Payout Address action, so an address can be obtained without a shell.',
-    de_DE: 'Add a Get Payout Address action, so an address can be obtained without a shell.',
-    pl_PL: 'Add a Get Payout Address action, so an address can be obtained without a shell.',
-    fr_FR: 'Add a Get Payout Address action, so an address can be obtained without a shell.',
+    en_US: 'Hand out legacy addresses explicitly: the gateway cannot pay to a bech32 regtest address.',
+    es_ES: 'Hand out legacy addresses explicitly: the gateway cannot pay to a bech32 regtest address.',
+    de_DE: 'Hand out legacy addresses explicitly: the gateway cannot pay to a bech32 regtest address.',
+    pl_PL: 'Hand out legacy addresses explicitly: the gateway cannot pay to a bech32 regtest address.',
+    fr_FR: 'Hand out legacy addresses explicitly: the gateway cannot pay to a bech32 regtest address.',
   },
   migrations: {
     up: async ({ effects }) => {},

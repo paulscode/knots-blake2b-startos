@@ -49,7 +49,18 @@ export const getPayoutAddress = sdk.Action.withoutInput(
         await sub.exec([...cli, 'loadwallet', 'mining'])
         await sub.exec([...cli, 'createwallet', 'mining'])
 
-        const { stdout } = await sub.execFail([...cli, 'getnewaddress'])
+        // Explicitly legacy. DATUM's address parser only understands bech32
+        // with the `bc` and `tb` prefixes (datum_utils.c:415-425), so a regtest
+        // bech32 address (`bcrt1...`) fails to convert and the gateway refuses
+        // to start. Base58 regtest addresses share testnet's prefixes and work.
+        // Not relying on the wallet's default address type, which is bech32 in
+        // recent Core and would silently hand out something unusable.
+        const { stdout } = await sub.execFail([
+          ...cli,
+          'getnewaddress',
+          '',
+          'legacy',
+        ])
         return stdout.toString().trim()
       },
     )
