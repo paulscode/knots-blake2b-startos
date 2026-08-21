@@ -27,9 +27,11 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
   const peerMulti = sdk.MultiHost.of(effects, 'peer')
   const peerOrigin = await peerMulti.bindPort(peerPort, {
     protocol: null,
-    preferredExternalPort: peerPort,
     addSsl: null,
-    secure: null,
+    preferredExternalPort: peerPort,
+    // Plaintext by design: regtest P2P between two lab nodes. `secure: null`
+    // would make this bridge-only and unreachable from another machine.
+    secure: { ssl: false },
   })
   const peer = sdk.createInterface(effects, {
     name: i18n('Peer'),
