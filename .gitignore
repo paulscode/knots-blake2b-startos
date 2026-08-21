@@ -1,0 +1,11 @@
+*.s9pk
+startos/*.js
+node_modules/
+.DS_Store
+.vscode/
+docker-images
+javascript
+ncc-cache
+# Release artifacts, matching the convention in the other start9-store projects
+builds/
+*.s9pk
