@@ -8,6 +8,11 @@ const dict = {
   'P2P for connecting to another BLAKE2b regtest node.': 4,
   'The node is accepting RPC': 5,
   'The node is not accepting RPC yet': 6,
+  'Get Payout Address': 7,
+  'Create an address in this node’s wallet, to paste into the gateway as its payout address.': 8,
+  'Payout Address': 9,
+  'Copy this into the gateway’s Set Payout Address action. Blocks mined will pay here.': 10,
+  'Address': 11,
 } as const
 
 /**
