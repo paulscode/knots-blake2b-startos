@@ -1,20 +1,26 @@
 import { storeJson } from './fileModels/store.json'
 import { i18n } from './i18n'
 import { sdk } from './sdk'
-import { dataDir, rpcPort } from './utils'
+import {
+  dataDir,
+  defaultActivationHeight,
+  defaultHeadline,
+  rpcPort,
+} from './utils'
 
 export const main = sdk.setupMain(async ({ effects }) => {
   console.info(i18n('Starting Bitcoin Knots BLAKE2b (regtest)'))
 
+  // Tolerate an absent store rather than refusing to start: every field has a
+  // default, so there is nothing here that a missing file makes unsafe.
   const store = await storeJson.read().const(effects)
-  if (!store) throw new Error('store.json was not seeded')
 
   const env = {
     CHAIN: 'regtest',
-    BLAKE2B_HEADLINE: store.blake2bHeadline,
-    BLAKE2B_ACTIVATION_HEIGHT: String(store.activationHeight),
-    PRUNE: String(store.prune),
-    FASTPRUNE: store.fastprune ? '1' : '0',
+    BLAKE2B_HEADLINE: store?.blake2bHeadline ?? defaultHeadline,
+    BLAKE2B_ACTIVATION_HEIGHT: String(store?.activationHeight ?? defaultActivationHeight),
+    PRUNE: String(store?.prune ?? 1),
+    FASTPRUNE: (store?.fastprune ?? true) ? '1' : '0',
     // No RPC_USER/RPC_PASSWORD: bitcoind writes a .cookie into the datadir and
     // the gateway reads it through a read-only mount of this volume. Nothing
     // here has to generate or store an RPC secret.

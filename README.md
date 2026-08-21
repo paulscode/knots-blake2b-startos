@@ -77,8 +77,16 @@ Settings live in `store.json` on the main volume, typed by
 | Key | Default | Notes |
 |---|---|---|
 | `blake2bHeadline` | `BLAKE2b lab 2026-08-21` | consensus-critical, must match every node on the chain |
-| `activationHeight` | 10 | regtest-only |
+| `activationHeight` | **1** | BLAKE2b from the very first mined block |
 | `prune` / `fastprune` | 1 / true | manual pruning; the gateway needs no historical blocks |
+
+`activationHeight` defaults to 1 on purpose. A Sia ASIC cannot mine SHA256d, so any
+higher value leaves the chain serving work the miner cannot use, with no indication
+why: it connects, gets jobs, and produces nothing. At 1 the first template is already
+header v2 (`!blake2b`, version `0xa0000000`), so a user can install both packages,
+set a payout address, point their miner, and mine. Raising it is only useful for
+deliberately testing the SHA256d to BLAKE2b transition, and then the pre-activation
+blocks have to be mined with the node's own miner.
 
 **RPC credentials are not stored here.** No `rpcuser`/`rpcpassword` is set, so
 bitcoind generates `/data/regtest/.cookie` and dependents read it through a read-only

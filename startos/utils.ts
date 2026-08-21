@@ -21,5 +21,18 @@ export const dataDir = '/data'
 // always matches. The entrypoint refuses to start on empty.
 export const defaultHeadline = 'BLAKE2b lab 2026-08-21'
 
-// Regtest-only knob that decides where SHA256d stops and BLAKE2b begins.
-export const defaultActivationHeight = 10
+// Where SHA256d stops and BLAKE2b begins.
+//
+// Defaults to 1, meaning the very first mined block is already BLAKE2b, because
+// the point of this package is that someone can install it, point a Sia ASIC at
+// the gateway, and mine. A higher value leaves the chain on SHA256d until that
+// height, and a Sia ASIC cannot mine SHA256d at all: the miner would connect,
+// receive work it cannot use, and produce nothing, with no indication why.
+//
+// Verified: with blake2b@1 the block at height 1 is a 164-byte header v2 and GBT
+// advertises !blake2b with version 0xa0000000 straight away.
+//
+// Raising this is only useful for deliberately testing the transition, and it
+// then requires mining the pre-activation blocks with the node's own miner,
+// since no Sia ASIC can produce them.
+export const defaultActivationHeight = 1
