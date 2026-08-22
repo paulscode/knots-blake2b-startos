@@ -5,7 +5,7 @@
 FROM debian:bookworm-slim AS build
 
 ARG KNOTS_REPO=https://github.com/luke-jr/bitcoin.git
-ARG KNOTS_REF=95ecbc35e540b8e3784790d101e6fbeb3aca01a9
+ARG KNOTS_REF=fee27ccfe950e998bb6d36e2b81f4ec97e3e89a3
 # RDTS consent is mandatory at configure time. IMPLICIT is correct for a test
 # chain; a mainnet image would have to make this an explicit operator choice.
 ARG RDTS_CONSENT=IMPLICIT
