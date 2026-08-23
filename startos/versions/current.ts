@@ -1,13 +1,13 @@
 import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
 
 export const current = VersionInfo.of({
-  version: '1.0.0:11',
+  version: '1.0.0:12',
   releaseNotes: {
-    en_US: 'Adds a Show Wallet Balance action, so you can see what mining has produced without a terminal.',
-    es_ES: 'Adds a Show Wallet Balance action, so you can see what mining has produced without a terminal.',
-    de_DE: 'Adds a Show Wallet Balance action, so you can see what mining has produced without a terminal.',
-    pl_PL: 'Adds a Show Wallet Balance action, so you can see what mining has produced without a terminal.',
-    fr_FR: 'Adds a Show Wallet Balance action, so you can see what mining has produced without a terminal.',
+    en_US: "Fixes the build: earlier releases were still compiled from the older Knots commit, not the one their notes named. Nothing your node does changes.",
+    es_ES: "Fixes the build: earlier releases were still compiled from the older Knots commit, not the one their notes named. Nothing your node does changes.",
+    de_DE: "Fixes the build: earlier releases were still compiled from the older Knots commit, not the one their notes named. Nothing your node does changes.",
+    pl_PL: "Fixes the build: earlier releases were still compiled from the older Knots commit, not the one their notes named. Nothing your node does changes.",
+    fr_FR: "Fixes the build: earlier releases were still compiled from the older Knots commit, not the one their notes named. Nothing your node does changes.",
   },
   migrations: {
     up: async ({ effects }) => {},
