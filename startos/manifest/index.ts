@@ -21,12 +21,12 @@ export const manifest = setupManifest({
         dockerBuild: {
           dockerfile: 'Dockerfile',
           workdir: '.',
-          buildArgs: {
-            // Pinned by commit, never by branch. `pow_hf_blake2b` is a moving
-            // development branch; a floating build would silently cross
-            // consensus revisions between package versions.
-            KNOTS_REF: '95ecbc35e540b8e3784790d101e6fbeb3aca01a9',
-          },
+          // No buildArgs on purpose. The pin belongs in exactly one place, and
+          // that place is the Dockerfile's ARG default. Setting it here as well
+          // silently overrode it: the Dockerfile was moved to fee27ccfe9 and this
+          // was left on 95ecbc35e5, so every StartOS build kept fetching the
+          // commit the rebase had orphaned. One source of truth, and this is
+          // not it.
         },
       },
       arch: ['x86_64', 'aarch64'],
