@@ -49,7 +49,37 @@ in `startos/main.ts` runs before the daemon. Without it the package installs cle
 and then crash-loops on `/data/bitcoin.conf: Permission denied`, which is how it was
 found.
 
+## Actions
+
+**Get Payout Address** creates a legacy address in the node's `mining` wallet, to
+paste into the gateway. Legacy explicitly, because DATUM's parser only understands
+the `bc` and `tb` bech32 prefixes and a `bcrt1...` address fails downstream.
+
+**Show Wallet Balance** reports spendable, immature and block height from
+`getbalances` and `getblockcount`.
+
+Immature is shown separately on purpose. Coinbase outputs need 100 confirmations
+(`COINBASE_MATURITY`), so a node that has just mined 56 blocks reports a spendable
+balance of zero and 2800 immature. A single figure would read as "mining is not
+working" at precisely the moment it is working. Measured on the test box, which
+had mined exactly that.
+
+The result carries a plain statement that these coins exist only on this machine's
+chain. That is not decoration: the action exists because a user asked whether
+regtest coins can be sent to other testers, the way a testnet4 balance can be. They
+cannot, and a balance screen that does not say so invites the opposite conclusion.
+Regtest clears `vFixedSeeds` and sets `vSeeds` to `dummySeed.invalid.`, so nodes
+never find each other; two installs that have both mined cannot merge without one
+side's blocks being reorged away; `fPowNoRetargeting` is true so difficulty never
+rises; and `nSubsidyHalvingInterval` is 150, so the subsidy reaches zero by about
+block 4,950.
+
 ## Diagnosing
+
+- A no-input action still reads its input from stdin. `start-cli package action run
+  knots-blake2b show-wallet-balance` fails with "Deserialization Error: EOF while
+  parsing a value" unless something is piped in; `echo null |` in front fixes it.
+  Not a package fault, and it looks exactly like a broken action.
 
 - `start-cli package logs knots-blake2b`, bitcoind's own log goes to console.
 - Health check is `checkPortListening` on the RPC port. "The node is not accepting

@@ -1,13 +1,13 @@
 import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
 
 export const current = VersionInfo.of({
-  version: '1.0.0:10',
+  version: '1.0.0:11',
   releaseNotes: {
-    en_US: 'Rebuild against Knots fee27ccfe9. The branch was rebased, not advanced: nothing that runs on your node changed.',
-    es_ES: 'Rebuild against Knots fee27ccfe9. The branch was rebased, not advanced: nothing that runs on your node changed.',
-    de_DE: 'Rebuild against Knots fee27ccfe9. The branch was rebased, not advanced: nothing that runs on your node changed.',
-    pl_PL: 'Rebuild against Knots fee27ccfe9. The branch was rebased, not advanced: nothing that runs on your node changed.',
-    fr_FR: 'Rebuild against Knots fee27ccfe9. The branch was rebased, not advanced: nothing that runs on your node changed.',
+    en_US: 'Adds a Show Wallet Balance action, so you can see what mining has produced without a terminal.',
+    es_ES: 'Adds a Show Wallet Balance action, so you can see what mining has produced without a terminal.',
+    de_DE: 'Adds a Show Wallet Balance action, so you can see what mining has produced without a terminal.',
+    pl_PL: 'Adds a Show Wallet Balance action, so you can see what mining has produced without a terminal.',
+    fr_FR: 'Adds a Show Wallet Balance action, so you can see what mining has produced without a terminal.',
   },
   migrations: {
     up: async ({ effects }) => {},

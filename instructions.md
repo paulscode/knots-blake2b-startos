@@ -30,6 +30,32 @@ wallet on this node; later runs just add addresses to it.
 These are regtest addresses. They mean nothing on any other chain, and nothing of
 value can be sent to them.
 
+## Seeing what you have mined
+
+Go to **Actions** and run **Show Wallet Balance**.
+
+It shows three things: what is spendable now, what is not spendable yet, and how
+many blocks are on your chain.
+
+**A new miner's balance is almost all in "not spendable yet", and that is normal.**
+Freshly mined coins need another 100 blocks before they can be spent. If you have
+just started, "spendable now" will be `0.00000000` while blocks are piling up. That
+is not a sign anything is wrong.
+
+### These coins stay on this machine
+
+They are only on the private test chain running on your own server. You cannot send
+them to another person, and they are not worth anything.
+
+This is worth being clear about, because it is different from a testnet node. On
+testnet everyone joins one shared network, so testers can send coins to each other.
+Your chain has no network: it started empty on your server, it has no way to find
+anyone else's, and if two people who had both been mining ever did connect their
+chains, one side's blocks would simply be discarded.
+
+If you want to see the numbers move, mine more blocks. That is all the balance is
+for: confirming your miner is producing blocks your node accepts.
+
 ## Settings worth knowing about
 
 The defaults are chosen so the pair works out of the box, and most people should
