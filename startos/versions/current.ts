@@ -20,7 +20,7 @@ const notes =
   'the testnet4 activation height. Private chains behave exactly as before.'
 
 export const current = VersionInfo.of({
-  version: '1.0.0:15',
+  version: '1.0.0:16',
   releaseNotes: {
     en_US: notes,
     es_ES: notes,

@@ -55,17 +55,25 @@ export const getPayoutAddress = sdk.Action.withoutInput(
         await sub.exec([...cli, 'loadwallet', 'mining'])
         await sub.exec([...cli, 'createwallet', 'mining'])
 
-        // Explicitly legacy. DATUM's address parser only understands bech32
-        // with the `bc` and `tb` prefixes (datum_utils.c:415-425), so a regtest
-        // bech32 address (`bcrt1...`) fails to convert and the gateway refuses
-        // to start. Base58 regtest addresses share testnet's prefixes and work.
-        // Not relying on the wallet's default address type, which is bech32 in
-        // recent Core and would silently hand out something unusable.
+        // Address type by chain, and the reason is DATUM rather than bitcoind.
+        // Its parser handles bech32 only for the `bc` and `tb` prefixes
+        // (datum_utils.c:415-425), falling back to libblkmaker for base58. So a
+        // regtest `bcrt1...` matches neither and the gateway refuses to start,
+        // while testnet4's `tb1...` is understood directly.
+        //
+        // Legacy on regtest is therefore a workaround, not a preference, and it
+        // should not follow us onto a chain that does not need it: bech32 is
+        // what a modern wallet shows and it is cheaper to spend. Base58 testnet
+        // addresses would also work, since they share regtest's prefixes.
+        //
+        // Neither case relies on the wallet's default type, which is bech32 in
+        // recent Core and would silently hand out something unusable on regtest.
+        const addressType = chain === 'regtest' ? 'legacy' : 'bech32'
         const { stdout } = await sub.execFail([
           ...cli,
           'getnewaddress',
           '',
-          'legacy',
+          addressType,
         ])
         return stdout.toString().trim()
       },
