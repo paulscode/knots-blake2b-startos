@@ -62,7 +62,19 @@ esac
     # nothing to collide with. A dependent should not have to re-read a port
     # because the operator switched chains.
     echo "rpcport=18443"
-    echo "port=18444"
+    # Two p2p listeners. `bind` is the ordinary one, shared with anonymous
+    # inbound peers. `whitebind` grants noban + download to whatever arrives on
+    # it, and StartOS keeps that binding off the LAN, so it is reachable only by
+    # other services on the bridge. A dependent pulling historical blocks needs
+    # the second: on the first it is subject to inbound eviction, and on a pruned
+    # node to NODE_NETWORK_LIMITED, which disconnects it for asking about a block
+    # more than 288 deep.
+    #
+    # Both are explicit because naming either one disables bitcoind's default
+    # listener, so omitting `bind` here would leave the node with no ordinary
+    # p2p port at all.
+    echo "bind=0.0.0.0:18444"
+    echo "whitebind=0.0.0.0:18445"
     # Regtest only. `-testactivationheight` is read by CRegTestParams and nowhere
     # else, so on testnet4 bitcoind accepts it, logs it, and ignores it: the
     # height stays the compiled-in 149537. Writing it there would be config that

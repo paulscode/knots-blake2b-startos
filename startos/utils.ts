@@ -13,6 +13,28 @@ export const rpcHostId = 'rpc'
 export const rpcPort = 18443
 export const peerPort = 18444
 
+/**
+ * A second p2p listener, whitelisted and reachable only over the LXC bridge.
+ *
+ * A dependent that pulls whole historical blocks over p2p, which is what an
+ * Electrum server does both to build its index and to answer history queries,
+ * cannot use the plain `peer` port. That one is shared with anonymous inbound
+ * peers and earns no permissions: bitcoind may evict the connection to seat
+ * another peer, and a pruned node serves only the last 288 blocks
+ * (`NODE_NETWORK_LIMITED`) to an unprivileged peer, disconnecting when asked for
+ * anything older. electrs does not reconnect p2p, it exits, so one disconnect is
+ * a restart loop. Measured: asking for a block 416 deep on the plain port ended
+ * the connection and took electrs down with it.
+ *
+ * `whitebind` on this port grants noban + download, which removes both problems.
+ * The binding is deliberately **not** exported as an interface, so it stays off
+ * the LAN and lands only on the bridge; a public peer keeps arriving on `peer`
+ * and cannot reach these permissions. Same shape as the official bitcoind
+ * package's `peer-local`, which is what dependents already expect to resolve.
+ */
+export const peerLocalHostId = 'peer-local'
+export const peerPortLocal = 18445
+
 export const dataDir = '/data'
 
 // Consensus-critical, and must be identical on every node of the chain. An

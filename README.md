@@ -43,7 +43,7 @@ or Bitcoin Knots.
 | PoW | SHA256d | BLAKE2b after the activation height |
 | header | 80 bytes | 164 bytes (header v2) after activation |
 | chain | mainnet and friends | regtest or testnet4, never mainnet |
-| RPC / peer ports | 8332 / 8333 | 18443 / 18444 |
+| RPC / peer ports | 8332 / 8333 / 58334 | 18443 / 18444 / 18445 |
 
 The ids and ports are deliberately disjoint so **both install and run at once**.
 Verified: this package runs on a box with `bitcoind` and `datum` already installed.
@@ -156,6 +156,31 @@ user, so the node cannot write its own `bitcoin.conf` without help. A `chown` on
 in `startos/main.ts` runs before the daemon. Without it the package installs cleanly
 and then crash-loops on `/data/bitcoin.conf: Permission denied`, which is how it was
 found.
+
+## Two p2p listeners
+
+`bind=0.0.0.0:18444` is the ordinary one, shared with anonymous inbound peers.
+`whitebind=0.0.0.0:18445` grants `noban` + `download` to whatever arrives on it,
+and its binding (`peer-local`) is **not exported as an interface**, so StartOS
+keeps it off the LAN and only services on the bridge can reach it. A public peer
+keeps arriving on `peer` and cannot reach those permissions.
+
+This exists for dependents that pull whole historical blocks over p2p, which is
+what an Electrum server does both to build its index and to answer a history
+query. On the plain port such a peer is subject to inbound eviction and, on a
+pruned node, to `NODE_NETWORK_LIMITED`: bitcoind serves only the last 288 blocks
+to an unprivileged peer and disconnects when asked for anything older. electrs
+does not reconnect p2p, it exits, so one disconnect is a restart loop. Measured:
+asking for a block 416 deep on the plain port ended the connection.
+
+Verified: an inbound peer on 18444 reports `permissions: []`, and the same peer
+on 18445 reports `['noban', 'relay', 'mempool', 'download', 'addr']`.
+
+Both are written explicitly because naming either `bind` or `whitebind` disables
+bitcoind's default listener, so omitting `bind` would leave no ordinary p2p port.
+
+Same shape and same host id as the official bitcoind package's `peer-local`,
+which is what dependents already expect to resolve.
 
 ## Actions
 
