@@ -1,14 +1,34 @@
 # Bitcoin Knots with the BLAKE2b proof-of-work change.
 #
-# Pinned by commit, never by branch: this is a moving development branch and a
-# floating build would silently cross consensus revisions (PLAN section 8).
+# Pinned by commit, never by branch: a floating build would silently cross
+# consensus revisions (PLAN section 8). The commit below is the tag
+# v29.4.1.knots20260508rc2, recorded as a SHA because a release candidate's tag
+# can be moved and a SHA cannot.
+#
+# Why this tag rather than luke-jr's development branch: the testnet4 BLAKE2b
+# activation height (149537) is compiled into CTestNet4Params, and it is only
+# there in the bitcoinknots release-candidate tags. Regtest works from either
+# tree, because there the height comes from -testactivationheight=blake2b@N, but
+# testnet4 needs this one.
+#
+# This image cannot serve a mainnet node, and that is upstream's choice, not
+# ours: init.cpp:1077 refuses ChainType::MAIN outright ("This release candidate
+# only supports test networks") unless -allow_mainnet_test_only is passed.
+# Verified by running it. So the mainnet Knots forks stay on signed releases and
+# this package stays on test networks; the two are not interchangeable.
+#
+# Note also init.cpp:1095: blake2b_headline is mandatory on *every* chain, not
+# just where BLAKE2b is scheduled. entrypoint.sh already requires it.
+#
+# There is no signed release for this tag. bitcoinknots.org publishes nothing
+# past 29.4.knots20260508, and the RC tags have no GitHub release, so there are
+# no artifacts and no detached signature. Building from source here trades the
+# signed-release trust model for a pinned git commit, which is a real reduction
+# in assurance and is stated in the README.
 FROM debian:bookworm-slim AS build
 
-ARG KNOTS_REPO=https://github.com/luke-jr/bitcoin.git
-ARG KNOTS_REF=fee27ccfe950e998bb6d36e2b81f4ec97e3e89a3
-# RDTS consent is mandatory at configure time. IMPLICIT is correct for a test
-# chain; a mainnet image would have to make this an explicit operator choice.
-ARG RDTS_CONSENT=IMPLICIT
+ARG KNOTS_REPO=https://github.com/bitcoinknots/bitcoin.git
+ARG KNOTS_REF=c25ad6bcd18fa65cd78f176a52be062411507741
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential cmake pkgconf python3 git ca-certificates \
@@ -29,7 +49,6 @@ RUN cmake -B build \
         -DBUILD_BENCH=OFF \
         -DBUILD_FUZZ_BINARY=OFF \
         -DENABLE_WALLET=ON \
-        -DRDTS_CONSENT="$RDTS_CONSENT" \
  && cmake --build build -j"$(nproc)" --target bitcoind bitcoin-cli \
  && strip build/bin/bitcoind build/bin/bitcoin-cli
 

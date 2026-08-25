@@ -3,10 +3,18 @@
 Bitcoin Knots carrying the proposed **BLAKE2b proof-of-work change**, packaged for
 StartOS 0.4.0.x so an existing Sia-compatible BLAKE2b ASIC can mine it.
 
-**Regtest only.** No chain has the BLAKE2b activation height set: `Blake2bHeight`
-defaults to `INT_MAX` on mainnet, testnet, signet and regtest alike, and only
-regtest can override it (`-testactivationheight=blake2b@N`). There is no network to
-join and the coins are worthless by construction.
+**This package runs regtest only.** The binary it ships can do more: since the repin to
+`v29.4.1.knots20260508rc2`, **testnet4 carries a compiled-in BLAKE2b activation at
+height 149537** and that chain is live. But this package has no chain selection yet.
+`entrypoint.sh` takes a `CHAIN` variable and defaults it to `regtest`, while the ports
+in the generated `[${CHAIN}]` section are still hardcoded to regtest's 18443/18444, so
+pointing it at testnet4 today would produce a node on the wrong ports. Chain selection,
+per-chain ports and peer bootstrapping are the next piece of work.
+
+On regtest the activation height is set with `-testactivationheight=blake2b@N`, which
+is the only chain that can override it. `Blake2bHeight` still defaults to `INT_MAX`
+everywhere else, so mainnet and signet remain unscheduled — and in this RC mainnet is
+refused outright, see Upstream below.
 
 Maintained by Paul Lamb (<https://github.com/paulscode>). Not affiliated with Start9
 or Bitcoin Knots.
@@ -26,14 +34,37 @@ Verified: this package runs on a box with `bitcoind` and `datum` already install
 
 ## Upstream
 
-Built from a **pinned commit**, never a branch: `luke-jr/bitcoin` @
-`95ecbc35e540b8e3784790d101e6fbeb3aca01a9` (branch `pow_hf_blake2b`, the subject of
-[bitcoinknots/bitcoin#359](https://github.com/bitcoinknots/bitcoin/pull/359)). That
-branch moves, and a floating build would silently cross consensus revisions between
-package versions. Bump `KNOTS_REF` in `startos/manifest/index.ts` to move it.
+Built from a **pinned commit**, never a branch: `bitcoinknots/bitcoin` @
+`c25ad6bcd18fa65cd78f176a52be062411507741`, which is the tag
+`v29.4.1.knots20260508rc2`. Recorded as a SHA because a release candidate's tag can be
+moved and a SHA cannot. The BLAKE2b change is
+[bitcoinknots/bitcoin#359](https://github.com/bitcoinknots/bitcoin/pull/359).
 
-`-DRDTS_CONSENT=IMPLICIT` is required at configure time; the build fails without an
-explicit choice.
+**The pin lives in exactly one place: the `KNOTS_REF` ARG default in the
+[Dockerfile](Dockerfile).** It is deliberately not set as a `buildArg` in
+`startos/manifest/index.ts` — it used to be, and the two drifted apart, so every
+StartOS build silently fetched an orphaned commit while the Dockerfile said otherwise.
+Bump it in the Dockerfile and nowhere else.
+
+Why this tag rather than the `pow_hf_blake2b` development branch: **the testnet4
+activation height (149537) is compiled into `CTestNet4Params`, and only the
+bitcoinknots release-candidate tags carry it.** Regtest works from either tree, since
+there the height comes from `-testactivationheight=blake2b@N`, but a testnet4 node
+needs this one.
+
+Two consequences of the RC, both verified by running the image:
+
+- **It refuses to run on mainnet.** `init.cpp:1077` rejects `ChainType::MAIN` with
+  "This release candidate only supports test networks" unless
+  `-allow_mainnet_test_only` is passed. So this package and the mainnet Knots forks
+  are not interchangeable.
+- **There is no signed release for this tag.** `bitcoinknots.org` publishes nothing
+  past `29.4.knots20260508`, and the RC tags have no GitHub release, so there are no
+  artifacts and no detached signature. Building from source trades the signed-release
+  trust model for a pinned git commit. That is a real reduction in assurance.
+
+`-DRDTS_CONSENT` is **not** passed and must not be: the option exists in
+`luke-jr/bitcoin` but not in this tag.
 
 ## Two hazards this package handles for the user
 
