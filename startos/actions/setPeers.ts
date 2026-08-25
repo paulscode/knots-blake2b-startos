@@ -8,7 +8,7 @@ export const inputSpec = InputSpec.of({
   peers: Value.textarea({
     name: i18n('Peers'),
     description: i18n(
-      'One address per line, as host:port. These are dialled in addition to whatever the network’s own seeds provide.',
+      'One address per line, as host:port. These are dialled in addition to the peers built into this service.',
     ),
     required: false,
     default: null,
@@ -44,7 +44,7 @@ export const setPeers = sdk.Action.withInput(
   async () => ({
     name: i18n('Set Peers'),
     description: i18n(
-      'Add nodes to connect to. Required on the public BLAKE2b test network, whose DNS seeds return nodes that are not on the fork.',
+      'Add nodes to connect to, on top of the ones this service already knows. Only needed if the built-in peers stop working.',
     ),
     warning: i18n(
       'The node restarts to apply the change. A peer that is not on the BLAKE2b chain will not break anything, it simply cannot serve blocks after the activation height.',

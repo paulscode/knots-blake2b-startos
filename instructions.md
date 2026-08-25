@@ -23,8 +23,10 @@ different ports and different data, and neither knows about the other.
 
 ## If you choose the public test network
 
-**Peers come with the package now**, but they are other people's home nodes and
-they will not last forever, so it is worth knowing why they are needed.
+**Peers are set up for you.** This service ships with a list of nodes that are on
+the BLAKE2b chain, so choosing the public test network is all you have to do. They
+are other people's home nodes though, so they will not last forever, and it is worth
+knowing why they are needed at all.
 
 The BLAKE2b chain shares testnet4's network identity: the same genesis block, the
 same default port, the same magic bytes. So the addresses testnet4's automatic peer
@@ -37,10 +39,11 @@ nothing obviously wrong. The **Chain** health check exists to say so plainly: it
 reports *Stalled just below the BLAKE2b activation height* rather than leaving you to
 work it out.
 
-If that happens, the fix is the **Set Peers** action: add a node that is on the
-BLAKE2b chain, one address per line as `host:port`. Ask in the Bitcoin Knots
-Discord for current addresses. Once you have one, the health check turns to
-*Following the BLAKE2b chain*.
+If that happens, the built-in peers have gone offline, and the fix is the **Set
+Peers** action: add a node that is on the BLAKE2b chain, one address per line as
+`host:port`. Ask in the Bitcoin Knots Discord for current addresses. Whatever you
+add is used alongside the built-in ones, not instead of them. Once one of them
+answers, the health check turns to *Following the BLAKE2b chain*.
 
 **The headline is not yours to choose on the public network.** Every chain commits
 to a piece of text in its first BLAKE2b block, and a node that disagrees rejects

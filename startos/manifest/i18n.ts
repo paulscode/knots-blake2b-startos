@@ -10,9 +10,9 @@ const longEn =
   'Sia-compatible BLAKE2b ASIC. ' +
   'It runs either a private chain of your own, where you choose the activation ' +
   'height and mine every block yourself, or the public BLAKE2b test network ' +
-  '(testnet4), where activation is fixed at height 149537. On the public ' +
-  'network you must add peers by hand: its DNS seeds return ordinary testnet4 ' +
-  'nodes that are not on the fork. Coins on either chain are worthless by ' +
+  '(testnet4), where activation is fixed at height 149537. It comes with peers ' +
+  'for that network, because its DNS seeds return ordinary testnet4 nodes that ' +
+  'are not on the fork. Coins on either chain are worthless by ' +
   'construction. Mainnet is not offered, and this build refuses it outright. ' +
   'It installs alongside the official Bitcoin Knots package without touching it. ' +
   'The consensus rules it implements are an open pull request that is still ' +

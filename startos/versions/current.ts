@@ -4,10 +4,10 @@ const notes =
   'This release can join the public BLAKE2b test network (testnet4), not just a private chain. ' +
   'Use the new Select Chain action to pick one. Nothing is deleted when you switch: each chain ' +
   'keeps its own data, so switching back returns you to where you left off. ' +
-  'It ships with verified peers for the public network, because testnet4’s DNS seeds return ' +
-  'ordinary nodes that are not on the fork; without one the node syncs to a block below the ' +
-  'activation height and stops there. Add your own with the new Set Peers action if the ' +
-  'shipped ones go stale. ' +
+  'It ships with peers for the public network, so choosing that network is all you have to do. ' +
+  'They are needed because testnet4’s own peer discovery returns nodes that are not on the fork, ' +
+  'and without one the node syncs to a block below the activation height and stops there. The new ' +
+  'Set Peers action is there for if the shipped ones go offline. ' +
   'On the public network the headline is set for you, because that chain has already committed ' +
   'to one and a node that disagrees rejects the first BLAKE2b block. The headline setting now ' +
   'applies to private chains only. ' +
@@ -20,7 +20,7 @@ const notes =
   'the testnet4 activation height. Private chains behave exactly as before.'
 
 export const current = VersionInfo.of({
-  version: '1.0.0:14',
+  version: '1.0.0:15',
   releaseNotes: {
     en_US: notes,
     es_ES: notes,

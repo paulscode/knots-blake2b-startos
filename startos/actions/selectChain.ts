@@ -40,7 +40,7 @@ export const selectChain = sdk.Action.withInput(
       'Choose whether this node runs its own private chain or joins the public BLAKE2b test network.',
     ),
     warning: i18n(
-      'The node restarts and begins following the chain you pick. Nothing is deleted: each chain keeps its own data, so switching back returns you to where you left off. On the public test network you must also add peers, because its DNS seeds return nodes that are not on the fork.',
+      'The node restarts and begins following the chain you pick. Nothing is deleted: each chain keeps its own data, so switching back returns you to where you left off.',
     ),
     allowedStatuses: 'any',
     group: null,

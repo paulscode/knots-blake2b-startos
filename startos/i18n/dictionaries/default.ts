@@ -43,6 +43,9 @@ const dict = {
   'Peers': 39,
   'One address per line, as host:port. These are dialled in addition to whatever the network’s own seeds provide.': 40,
   'Stuck at the block before BLAKE2b activation. This node has the fork’s headers but is refusing its blocks, which almost always means the headline does not match. Check the logs for bad-headline.': 41,
+  'The node restarts and begins following the chain you pick. Nothing is deleted: each chain keeps its own data, so switching back returns you to where you left off.': 42,
+  'One address per line, as host:port. These are dialled in addition to the peers built into this service.': 43,
+  'Add nodes to connect to, on top of the ones this service already knows. Only needed if the built-in peers stop working.': 44,
 } as const
 
 /**
