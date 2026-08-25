@@ -51,7 +51,7 @@ rules.
 ## What to do with it
 
 On its own, this node does very little. It becomes useful when you also install
-**Datum Gateway BLAKE2b (regtest)**, which turns its block templates into work your
+**Datum Gateway BLAKE2b**, which turns its block templates into work your
 ASIC can mine.
 
 ## Getting a payout address
