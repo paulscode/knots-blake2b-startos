@@ -13,12 +13,14 @@ const notes =
   'applies to private chains only. ' +
   'A new Chain health check reports which of those two situations you are in, rather than just ' +
   'that the node is running. ' +
+  'Other services on this server can now pull historical blocks from it without being ' +
+  'disconnected, which an Electrum server needs. ' +
   'The node itself is rebuilt from the Bitcoin Knots release candidate v29.4.1.knots20260508rc2 ' +
   'instead of a development branch, which is a different consensus revision and is what knows ' +
   'the testnet4 activation height. Private chains behave exactly as before.'
 
 export const current = VersionInfo.of({
-  version: '1.0.0:13',
+  version: '1.0.0:14',
   releaseNotes: {
     en_US: notes,
     es_ES: notes,
