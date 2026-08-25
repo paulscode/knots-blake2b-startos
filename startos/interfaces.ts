@@ -22,8 +22,9 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
     query: {},
   })
 
-  // P2P, so two of these nodes can find each other for a multi-machine test.
-  // There is no public network for this chain to join.
+  // P2P. On regtest this is how two of these nodes find each other for a
+  // multi-machine test; on testnet4 it is how this node reaches the rest of the
+  // BLAKE2b network, which it cannot do through the DNS seeds.
   const peerMulti = sdk.MultiHost.of(effects, 'peer')
   const peerOrigin = await peerMulti.bindPort(peerPort, {
     protocol: null,
@@ -36,7 +37,7 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
   const peer = sdk.createInterface(effects, {
     name: i18n('Peer'),
     id: 'peer',
-    description: i18n('P2P for connecting to another BLAKE2b regtest node.'),
+    description: i18n('P2P for connecting to other BLAKE2b nodes.'),
     type: 'p2p',
     masked: false,
     schemeOverride: { ssl: null, noSsl: null },

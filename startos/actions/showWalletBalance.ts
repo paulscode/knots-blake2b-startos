@@ -1,6 +1,7 @@
 import { i18n } from '../i18n'
 import { sdk } from '../sdk'
-import { dataDir } from '../utils'
+import { storeJson } from '../fileModels/store.json'
+import { chainFlag, dataDir, defaultChain } from '../utils'
 
 /**
  * Show what mining has actually produced, without an SSH session.
@@ -34,6 +35,8 @@ export const showWalletBalance = sdk.Action.withoutInput(
   }),
 
   async ({ effects }) => {
+    const chain = (await storeJson.read((s) => s.chain).once()) ?? defaultChain
+
     const stats = await sdk.SubContainer.withTemp(
       effects,
       { imageId: 'knots' },
@@ -45,7 +48,10 @@ export const showWalletBalance = sdk.Action.withoutInput(
       }),
       'wallet-balance',
       async (sub) => {
-        const cli = ['bitcoin-cli', `-datadir=${dataDir}`, '-regtest']
+        // Follow the selected chain rather than assuming regtest: this package
+        // can also run testnet4, where `-regtest` would talk to a node that is
+        // not there.
+        const cli = ['bitcoin-cli', `-datadir=${dataDir}`, chainFlag(chain)]
 
         // Same idempotent pair as Get Payout Address: one succeeds on a fresh
         // node, the other on a node that already has the wallet, and neither is

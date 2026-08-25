@@ -3,18 +3,33 @@
 Bitcoin Knots carrying the proposed **BLAKE2b proof-of-work change**, packaged for
 StartOS 0.4.0.x so an existing Sia-compatible BLAKE2b ASIC can mine it.
 
-**This package runs regtest only.** The binary it ships can do more: since the repin to
-`v29.4.1.knots20260508rc2`, **testnet4 carries a compiled-in BLAKE2b activation at
-height 149537** and that chain is live. But this package has no chain selection yet.
-`entrypoint.sh` takes a `CHAIN` variable and defaults it to `regtest`, while the ports
-in the generated `[${CHAIN}]` section are still hardcoded to regtest's 18443/18444, so
-pointing it at testnet4 today would produce a node on the wrong ports. Chain selection,
-per-chain ports and peer bootstrapping are the next piece of work.
+**Runs regtest or testnet4**, selected by the `Select Chain` action and stored as
+`chain` in `store.json`. Mainnet is neither offered nor possible: this RC refuses
+`ChainType::MAIN` at startup (see Upstream), and `entrypoint.sh` refuses it before
+bitcoind gets the chance, with a message naming the reason.
 
-On regtest the activation height is set with `-testactivationheight=blake2b@N`, which
-is the only chain that can override it. `Blake2bHeight` still defaults to `INT_MAX`
-everywhere else, so mainnet and signet remain unscheduled — and in this RC mainnet is
-refused outright, see Upstream below.
+| | regtest | testnet4 |
+|---|---|---|
+| activation height | whatever you set, default 1 | 149537, compiled into `CTestNet4Params` |
+| `-testactivationheight` | honoured | **accepted and silently ignored** |
+| peer discovery | none, there is nothing to discover | DNS seeds return non-fork nodes |
+| data | `/data/regtest` | `/data/testnet4` |
+
+Switching chains is not destructive: bitcoind keeps each chain in its own subdirectory,
+so the old chain is still there on switching back. Verified by round-tripping a
+56-block regtest chain through testnet4 and finding the same `hashBestChain`.
+
+**The internal ports do not change with the chain.** Both run RPC on 18443 and P2P on
+18444, rather than following each chain's defaults. Those ports are this package's
+contract with dependents, StartOS gives every package its own bridge address so there
+is nothing to collide with, and a dependent should not have to re-read a port because
+the operator switched chains.
+
+**`-testactivationheight` is regtest-only and fails silently elsewhere.** It is read by
+`CRegTestParams` and nowhere else, so on testnet4 bitcoind logs it as a config arg and
+ignores it: `getdeploymentinfo` still reports 149537. `entrypoint.sh` therefore does not
+write it on non-regtest chains, rather than writing config that looks effective and is
+not.
 
 Maintained by Paul Lamb (<https://github.com/paulscode>). Not affiliated with Start9
 or Bitcoin Knots.
@@ -26,7 +41,7 @@ or Bitcoin Knots.
 | id | `bitcoind` | `knots-blake2b` |
 | PoW | SHA256d | BLAKE2b after the activation height |
 | header | 80 bytes | 164 bytes (header v2) after activation |
-| chain | mainnet and friends | regtest only |
+| chain | mainnet and friends | regtest or testnet4, never mainnet |
 | RPC / peer ports | 8332 / 8333 | 18443 / 18444 |
 
 The ids and ports are deliberately disjoint so **both install and run at once**.
@@ -66,6 +81,39 @@ Two consequences of the RC, both verified by running the image:
 `-DRDTS_CONSENT` is **not** passed and must not be: the option exists in
 `luke-jr/bitcoin` but not in this tag.
 
+## The testnet4 peering problem, and the health check for it
+
+The BLAKE2b fork shares testnet4's genesis block, default port and magic bytes. So
+testnet4's DNS seeds (`seed.testnet4.bitcoin.sprovoost.nl`, `seed.testnet4.wiz.biz`)
+return ordinary testnet4 nodes, this node connects to them happily, and they serve
+valid blocks right up to 149537 because both chains share that history. Past it they
+have nothing this node will accept.
+
+The failure is therefore **not** following the wrong chain. It is stalling at 149536
+with peers connected and nothing visibly wrong. The `Set Peers` action is the fix
+(`addnodes` in `store.json`, merged with `testnet4Seeds` in `utils.ts`, which is
+deliberately empty until there are addresses worth committing to).
+
+The **`chain` health check** exists to name that state. It reads `getdeploymentinfo`,
+whose `hardfork` object carries the activation height and is present on both regtest
+and testnet4, plus `getblockchaininfo` for the heights:
+
+| condition | result | meaning |
+|---|---|---|
+| `blocks >= activation` | success | on the fork |
+| `headers > blocks` | loading | still downloading |
+| `blocks == activation - 1`, testnet4 | **failure** | no fork peers |
+| otherwise | loading | before activation, working normally |
+| `hardfork` absent | failure | build has no BLAKE2b schedule for this chain |
+| testnet4 and `activation != 149537` | failure | the pin moved a consensus height |
+
+**It keys on height, not on `hardfork.active`, and that distinction is load-bearing.**
+Measured on a regtest chain with activation at 20: `active` becomes `true` at height
+**19**, because it reports whether the *next* block is subject to the rule. A testnet4
+node stalled at 149536 therefore has `active: true`, so keying success off it would
+report "Following the BLAKE2b chain" for precisely the situation the check exists to
+catch. This was caught by running it, not by reading it.
+
 ## Two hazards this package handles for the user
 
 **An empty headline silently disables a consensus rule.** The node requires
@@ -81,6 +129,17 @@ and then crash-loops on `/data/bitcoin.conf: Permission denied`, which is how it
 found.
 
 ## Actions
+
+**Select Chain** switches between regtest and testnet4, writing `chain` to
+`store.json`. Not destructive; see the chain table at the top. Everything else that
+shells out to `bitcoin-cli` reads this and passes the matching flag, so the actions
+below follow the selected chain rather than assuming regtest.
+
+**Set Peers** writes `addnodes` to `store.json`, one `host:port` per line, which
+`entrypoint.sh` emits as `addnode=` lines. Free text with no validation beyond
+trimming: `addnode` accepts hostnames, IPv4, bracketed IPv6 and onion addresses, with
+or without a port, and rejecting something bitcoind would have accepted is worse than
+passing a bad entry through to a log line. Required on testnet4; see above.
 
 **Get Payout Address** creates a legacy address in the node's `mining` wallet, to
 paste into the gateway. Legacy explicitly, because DATUM's parser only understands
@@ -137,9 +196,11 @@ Settings live in `store.json` on the main volume, typed by
 
 | Key | Default | Notes |
 |---|---|---|
+| `chain` | `regtest` | `regtest` or `testnet4`; set by the Select Chain action |
 | `blake2bHeadline` | `BLAKE2b lab 2026-08-21` | consensus-critical, must match every node on the chain |
-| `activationHeight` | **1** | BLAKE2b from the very first mined block |
-| `prune` / `fastprune` | 1 / true | manual pruning; the gateway needs no historical blocks |
+| `activationHeight` | **1** | regtest only; ignored on testnet4, where it is 149537 and compiled in |
+| `addnodes` | `[]` | `host:port` per entry; set by the Set Peers action. Required on testnet4 |
+| `prune` / `fastprune` | 1 / true | manual pruning; `fastprune` is written on regtest only |
 
 `activationHeight` defaults to 1 on purpose. A Sia ASIC cannot mine SHA256d, so any
 higher value leaves the chain serving work the miner cannot use, with no indication
@@ -150,12 +211,14 @@ deliberately testing the SHA256d to BLAKE2b transition, and then the pre-activat
 blocks have to be mined with the node's own miner.
 
 **RPC credentials are not stored here.** No `rpcuser`/`rpcpassword` is set, so
-bitcoind generates `/data/regtest/.cookie` and dependents read it through a read-only
-mount of this volume. That is how the official Datum package authenticates against the
+bitcoind generates `/data/<chain>/.cookie` and dependents read it through a read-only
+mount of this volume. **Note the chain in that path**: a dependent hardcoding
+`/data/regtest/.cookie` breaks when the operator selects testnet4. That is how the official Datum package authenticates against the
 official Bitcoin package, and it means neither side generates, stores or hands around
 an RPC secret. Verified in `1.0.0:4`: "Using random cookie authentication".
 
-There is not yet a UI for editing these; they are store values with defaults.
+`chain` and `addnodes` have actions. The rest are store values with defaults and no UI
+yet.
 
 ## Status
 
@@ -166,6 +229,17 @@ Installs and runs alongside the official `bitcoind` and `datum`.
 `rpcHostId` and `rpcPort` in `startos/utils.ts` are this package's stable contract for
 dependents. The *external* port is assigned at runtime and must not be assumed.
 
-Not done: no user-facing actions for editing settings, and **it has not been mined
-against on StartOS**. The mining path is proven on the host and in plain Docker
-(docs/X5, docs/X6), not yet through this package.
+Chain selection is verified on the box, not just compiled: `1.0.0:13` was installed on
+StartOS 0.4.0.x, switched regtest to testnet4 and back through the Select Chain action,
+and the 56-block regtest chain came back with the same `hashBestChain`. On testnet4 the
+generated conf carried the `addnode` lines from Set Peers and omitted
+`testactivationheight` and `fastprune`. The `chain` health check reported
+`Before the BLAKE2b activation 0/149537` on testnet4 and `Following the BLAKE2b chain
+(56)` back on regtest.
+
+Not done: **testnet4 has not been synced through this package**, because that needs a
+peer that is on the fork and `testnet4Seeds` is still empty. So the stalled-below-
+activation branch of the health check is verified by construction and against captured
+node output, not against a live stall. And **it has not been mined against on
+StartOS**: the mining path is proven on the host and in plain Docker (docs/X5, docs/X6),
+not yet through this package.

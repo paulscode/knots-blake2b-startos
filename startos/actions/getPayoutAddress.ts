@@ -1,6 +1,7 @@
 import { i18n } from '../i18n'
 import { sdk } from '../sdk'
-import { dataDir } from '../utils'
+import { storeJson } from '../fileModels/store.json'
+import { chainFlag, dataDir, defaultChain } from '../utils'
 
 /**
  * Hand the user a regtest address they can paste into the gateway.
@@ -30,6 +31,8 @@ export const getPayoutAddress = sdk.Action.withoutInput(
   }),
 
   async ({ effects }) => {
+    const chain = (await storeJson.read((s) => s.chain).once()) ?? defaultChain
+
     const address = await sdk.SubContainer.withTemp(
       effects,
       { imageId: 'knots' },
@@ -41,7 +44,10 @@ export const getPayoutAddress = sdk.Action.withoutInput(
       }),
       'get-address',
       async (sub) => {
-        const cli = ['bitcoin-cli', `-datadir=${dataDir}`, '-regtest']
+        // Follow the selected chain rather than assuming regtest: this package
+        // can also run testnet4, where `-regtest` would talk to a node that is
+        // not there.
+        const cli = ['bitcoin-cli', `-datadir=${dataDir}`, chainFlag(chain)]
 
         // Idempotent: one of these succeeds on a fresh node, the other on a
         // node that already has the wallet. Both failing is fine as long as

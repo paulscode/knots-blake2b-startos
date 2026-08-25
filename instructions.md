@@ -1,14 +1,46 @@
-# Bitcoin Knots BLAKE2b (regtest)
+# Bitcoin Knots BLAKE2b
 
 An experimental build of Bitcoin Knots carrying the proposed **BLAKE2b proof-of-work
 change**, so you can try mining it with an existing Sia-compatible BLAKE2b ASIC.
 
-**This is a private test chain.** No public network runs these rules, so there is
-nothing to sync with and nothing to connect to. The coins are worthless by
-construction. It exists so you can find out whether your miner works.
+It runs one of two chains, and you pick which with the **Select Chain** action:
+
+- **Private chain (regtest).** Yours alone. Nothing to sync with, nothing to connect
+  to, and you mine every block yourself. This is the default and the right choice for
+  finding out whether your miner works.
+- **Public BLAKE2b test network (testnet4).** Shared with other testers. BLAKE2b
+  starts at block 149537 there. Read the section below before choosing it, because it
+  needs one extra step that the private chain does not.
+
+Coins on either chain are worthless by construction. Mainnet is not offered, and this
+build refuses to run on it.
+
+Switching chains deletes nothing. Each chain keeps its own data, so you can move
+between them and come back to find your old chain where you left it.
 
 It installs alongside the regular Bitcoin service and does not touch it. They use
 different ports and different data, and neither knows about the other.
+
+## If you choose the public test network
+
+**You have to add peers by hand.** This is not a rough edge that will be smoothed
+over later; it follows from how the fork works.
+
+The BLAKE2b chain shares testnet4's network identity: the same genesis block, the
+same default port, the same magic bytes. So the addresses testnet4's automatic peer
+discovery hands out are real testnet4 nodes, and your node will connect to them
+happily. They are even useful, up to block 149537, because both chains share that
+history. After it, they have nothing your node will accept.
+
+The result is a node that syncs to block 149536 and stops, with peers connected and
+nothing obviously wrong. The **Chain** health check exists to say so plainly: it
+reports *Stalled just below the BLAKE2b activation height* rather than leaving you to
+work it out.
+
+The fix is the **Set Peers** action: add at least one node that is on the BLAKE2b
+chain, one address per line as `host:port`. Ask in the Bitcoin Knots Discord for
+current addresses. Once you have one, the health check turns to *Following the
+BLAKE2b chain*.
 
 ## What to do with it
 
@@ -61,10 +93,14 @@ for: confirming your miner is producing blocks your node accepts.
 The defaults are chosen so the pair works out of the box, and most people should
 leave them alone.
 
-**BLAKE2b starts at block 1.** The chain uses BLAKE2b from its very first block, so
-your miner can start immediately. If you raised this, the chain would use SHA256d
-until that height, and a Sia miner cannot mine SHA256d: it would connect, receive
-work it cannot use, and appear to do nothing.
+**BLAKE2b starts at block 1** on a private chain. It uses BLAKE2b from its very first
+block, so your miner can start immediately. If you raised this, the chain would use
+SHA256d until that height, and a Sia miner cannot mine SHA256d: it would connect,
+receive work it cannot use, and appear to do nothing.
+
+On the public test network this setting does nothing at all. The activation height
+there is 149537 and it is fixed in the software, not configurable, so the node ignores
+anything you set.
 
 **The headline** is a piece of text that has to appear in the first BLAKE2b block,
 and it has to be identical on every node of a chain. Changing it means your node
@@ -76,5 +112,16 @@ not need the old ones, so this costs you nothing here.
 
 ## What "working" looks like
 
-The service shows healthy and its block height rises once something is mining. On
-its own, with nothing mining, the height stays where it is. That is normal.
+Two health checks tell you where you stand.
+
+**RPC** says the node is answering. **Chain** says which chain it is actually on, and
+that is the one to read:
+
+| It says | It means |
+|---|---|
+| Following the BLAKE2b chain | You are past the activation height, on the fork. This is the goal. |
+| Before the BLAKE2b activation | Working normally, not yet at the activation height. On a private chain, mine some blocks. |
+| Syncing | Downloading blocks it already knows about. Wait. |
+| Stalled just below the BLAKE2b activation height | Public network only. No peers on the fork. Use Set Peers. |
+
+On a private chain with nothing mining, the height stays where it is. That is normal.

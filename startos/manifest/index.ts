@@ -5,9 +5,11 @@ export const manifest = setupManifest({
   // Deliberately NOT `bitcoind`: that is the official Bitcoin Knots package, and
   // both must be installable at once. The id is effectively immutable (the
   // registry indexes by (id, version, sighash) and there is no rename path), so
-  // `regtest` is kept out of it and carried in the title instead. See PLAN Q12.
+  // the chain was kept out of it and carried in the title instead. See PLAN Q12.
+  // That decision paid off: the package now runs testnet4 as well as regtest,
+  // and the title could follow while the id could not have.
   id: 'knots-blake2b',
-  title: 'Bitcoin Knots BLAKE2b (regtest)',
+  title: 'Bitcoin Knots BLAKE2b',
   license: 'MIT',
   packageRepo: 'https://github.com/paulscode/knots-blake2b-startos',
   upstreamRepo: 'https://github.com/bitcoinknots/bitcoin',
