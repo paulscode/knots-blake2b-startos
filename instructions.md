@@ -23,8 +23,8 @@ different ports and different data, and neither knows about the other.
 
 ## If you choose the public test network
 
-**You have to add peers by hand.** This is not a rough edge that will be smoothed
-over later; it follows from how the fork works.
+**Peers come with the package now**, but they are other people's home nodes and
+they will not last forever, so it is worth knowing why they are needed.
 
 The BLAKE2b chain shares testnet4's network identity: the same genesis block, the
 same default port, the same magic bytes. So the addresses testnet4's automatic peer
@@ -37,10 +37,16 @@ nothing obviously wrong. The **Chain** health check exists to say so plainly: it
 reports *Stalled just below the BLAKE2b activation height* rather than leaving you to
 work it out.
 
-The fix is the **Set Peers** action: add at least one node that is on the BLAKE2b
-chain, one address per line as `host:port`. Ask in the Bitcoin Knots Discord for
-current addresses. Once you have one, the health check turns to *Following the
-BLAKE2b chain*.
+If that happens, the fix is the **Set Peers** action: add a node that is on the
+BLAKE2b chain, one address per line as `host:port`. Ask in the Bitcoin Knots
+Discord for current addresses. Once you have one, the health check turns to
+*Following the BLAKE2b chain*.
+
+**The headline is not yours to choose on the public network.** Every chain commits
+to a piece of text in its first BLAKE2b block, and a node that disagrees rejects
+that block and stops. The public network's is fixed, and the package sets it for
+you. The headline setting applies only to a private chain, where you are making the
+rules.
 
 ## What to do with it
 
@@ -123,5 +129,6 @@ that is the one to read:
 | Before the BLAKE2b activation | Working normally, not yet at the activation height. On a private chain, mine some blocks. |
 | Syncing | Downloading blocks it already knows about. Wait. |
 | Stalled just below the BLAKE2b activation height | Public network only. No peers on the fork. Use Set Peers. |
+| Stuck at the block before BLAKE2b activation | Public network only. It has the blocks on offer and is refusing them, which means the headline does not match. |
 
 On a private chain with nothing mining, the height stays where it is. That is normal.

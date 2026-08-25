@@ -11,6 +11,7 @@ bitcoind gets the chance, with a message naming the reason.
 | | regtest | testnet4 |
 |---|---|---|
 | activation height | whatever you set, default 1 | 149537, compiled into `CTestNet4Params` |
+| `blake2b_headline` | yours to choose | **fixed at `Totoro`**, set by the package |
 | `-testactivationheight` | honoured | **accepted and silently ignored** |
 | peer discovery | none, there is nothing to discover | DNS seeds return non-fork nodes |
 | data | `/data/regtest` | `/data/testnet4` |
@@ -81,6 +82,23 @@ Two consequences of the RC, both verified by running the image:
 `-DRDTS_CONSENT` is **not** passed and must not be: the option exists in
 `luke-jr/bitcoin` but not in this tag.
 
+## The headline is not a setting on testnet4
+
+`validation.cpp:4639` checks, at the activation height and only there, that the
+configured `blake2b_headline` appears as a substring of that block's coinbase
+`scriptSig`. testnet4's block 149537 carries **`Totoro`** (coinbase
+`d1ef84d4...c17342`, scriptSig `0321480207546f746f726f00...`). Any other value and
+the node rejects 149537 and every block after it with
+`AcceptBlock FAILED (bad-headline, Headline is wrong)`.
+
+So on testnet4 the headline is a property of the chain, not of the operator, and
+`headlineFor()` in `utils.ts` supplies it. The store's `blake2bHeadline` applies to
+regtest only, where you are making your own chain and any consistent value works.
+
+This was found the hard way: a node with good peers stalled at 149536 for an hour
+before the log was read closely enough. **It looks identical to having no fork
+peers** from the outside, which is why the health check below distinguishes them.
+
 ## The testnet4 peering problem, and the health check for it
 
 The BLAKE2b fork shares testnet4's genesis block, default port and magic bytes. So
@@ -101,11 +119,22 @@ and testnet4, plus `getblockchaininfo` for the heights:
 | condition | result | meaning |
 |---|---|---|
 | `blocks >= activation` | success | on the fork |
+| `blocks == activation - 1` and `headers == blocks`, testnet4, 3 polls | **failure** | no peers on the fork |
+| `blocks == activation - 1` and `headers > blocks`, testnet4, 3 polls | **failure** | has the headers, refusing the blocks: wrong headline |
 | `headers > blocks` | loading | still downloading |
-| `blocks == activation - 1`, testnet4 | **failure** | no fork peers |
 | otherwise | loading | before activation, working normally |
 | `hardfork` absent | failure | build has no BLAKE2b schedule for this chain |
 | testnet4 and `activation != 149537` | failure | the pin moved a consensus height |
+
+The `headers` count is what separates the two stall causes, and it is exact rather
+than a guess: a node with no fork peers never *learns* the fork's headers, so its
+header count stops at 149536 alongside its block count. A node with a wrong
+headline has all 170,000-odd headers and is refusing to connect the blocks. Both
+were observed.
+
+The three-poll delay is because a healthy node passes through `activation - 1`
+briefly on its way across the fork, so reporting on the first observation would
+false-positive on every successful sync.
 
 **It keys on height, not on `hardfork.active`, and that distinction is load-bearing.**
 Measured on a regtest chain with activation at 20: `active` becomes `true` at height
@@ -197,9 +226,9 @@ Settings live in `store.json` on the main volume, typed by
 | Key | Default | Notes |
 |---|---|---|
 | `chain` | `regtest` | `regtest` or `testnet4`; set by the Select Chain action |
-| `blake2bHeadline` | `BLAKE2b lab 2026-08-21` | consensus-critical, must match every node on the chain |
+| `blake2bHeadline` | `BLAKE2b lab 2026-08-21` | **regtest only**; on testnet4 the chain fixes it at `Totoro` |
 | `activationHeight` | **1** | regtest only; ignored on testnet4, where it is 149537 and compiled in |
-| `addnodes` | `[]` | `host:port` per entry; set by the Set Peers action. Required on testnet4 |
+| `addnodes` | `[]` | `host:port` per entry; set by the Set Peers action, merged with `testnet4Seeds` |
 | `prune` / `fastprune` | 1 / true | manual pruning; `fastprune` is written on regtest only |
 
 `activationHeight` defaults to 1 on purpose. A Sia ASIC cannot mine SHA256d, so any

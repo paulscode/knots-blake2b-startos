@@ -64,26 +64,64 @@ export const defaultChain: Chain = 'regtest'
  */
 export const testnet4ActivationHeight = 149537
 
+/**
+ * The headline that testnet4's BLAKE2b chain actually committed to.
+ *
+ * This is consensus, not preference, and it is not ours to choose.
+ * `validation.cpp:4639` checks, at the activation height only, that the
+ * configured headline appears as a substring of the coinbase `scriptSig`.
+ * testnet4's block 149537 carries `Totoro` (coinbase
+ * d1ef84d41c16813085aff61f098255b59e9ea07f9d42168ff078d06295c17342,
+ * scriptSig `0321480207546f746f726f00...`), so any other value makes the node
+ * reject that block and every block after it.
+ *
+ * Getting this wrong is a nasty failure: the node syncs happily to 149536 and
+ * stops, logging `bad-headline` but otherwise looking exactly like a node that
+ * simply has no peers on the fork. It cost an afternoon to find, which is why the
+ * package now sets it rather than offering it, and why the `chain` health check
+ * tells the two causes apart.
+ */
+export const testnet4Headline = 'Totoro'
+
+/** The headline a chain requires. Only regtest leaves the choice open. */
+export function headlineFor(chain: Chain, configured: string): string {
+  return chain === 'testnet4' ? testnet4Headline : configured
+}
+
 /** The `bitcoin-cli` / `bitcoind` flag selecting a chain. */
 export function chainFlag(chain: Chain): string {
   return `-${chain}`
 }
 
 /**
- * Peers to dial on testnet4.
+ * Peers to dial on testnet4, in addition to whatever the user adds.
  *
- * Empty, and that is the honest state rather than an oversight. testnet4's DNS
- * seeds (`seed.testnet4.bitcoin.sprovoost.nl`, `seed.testnet4.wiz.biz`) return
- * ordinary testnet4 nodes, and the BLAKE2b fork shares testnet4's magic, default
- * port and genesis block, so a fork node and a Core node connect happily and
- * exchange headers. They only disagree from 149537, where the fork node rejects
- * the other chain's 80-byte SHA256d headers.
+ * These exist because testnet4's DNS seeds cannot find this chain. The fork
+ * shares testnet4's genesis block, magic bytes and default port, so the seeds
+ * return ordinary testnet4 nodes: they serve valid blocks up to 149536 and have
+ * nothing after it. Measured 2026-08-24: all 33 addresses the two seeds returned
+ * were on the SHA256d chain. Without a starting point a new node stalls one block
+ * below the fork looking healthy, so shipping some is the difference between the
+ * package working and not.
  *
- * So the failure mode is not following the wrong chain, it is **stalling one
- * block short of the fork with no explanation**. The `chain` health check exists
- * to say so out loud. Filling this list is the fix, but a hardcoded peer list is
- * a maintenance burden and a centralisation point, so it stays empty until there
- * are addresses worth committing to and the user override below covers the
- * meantime.
+ * Every address below was verified, not collected: each was asked for the headers
+ * following block 149536 and answered with a 164-byte header v2, and each
+ * reported the same tip height as `mempool.guide/testnet4` at the time. See
+ * `spikes/blake2b-testnet4/` in the pruned-electrs repo for the tool that found
+ * them, which is the thing to re-run rather than trusting this list.
+ *
+ * **This list will rot.** These are other people's home nodes, not
+ * infrastructure. It is short on purpose: long enough to bootstrap, short enough
+ * that maintaining it is not a burden, and the user's own `addnodes` is merged
+ * with it for everything else.
  */
-export const testnet4Seeds: string[] = []
+export const testnet4Seeds: string[] = [
+  '82.67.102.15:48333',
+  '178.118.234.189:48333',
+  '64.177.11.149:48333',
+  '86.8.92.221:48333',
+  '136.36.150.88:48333',
+  '172.117.233.59:48333',
+  '184.179.145.52:48333',
+  '207.81.196.105:48333',
+]

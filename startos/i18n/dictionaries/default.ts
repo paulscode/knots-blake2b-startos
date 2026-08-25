@@ -42,6 +42,7 @@ const dict = {
   'The node restarts to apply the change. A peer that is not on the BLAKE2b chain will not break anything, it simply cannot serve blocks after the activation height.': 38,
   'Peers': 39,
   'One address per line, as host:port. These are dialled in addition to whatever the network’s own seeds provide.': 40,
+  'Stuck at the block before BLAKE2b activation. This node has the fork’s headers but is refusing its blocks, which almost always means the headline does not match. Check the logs for bad-headline.': 41,
 } as const
 
 /**

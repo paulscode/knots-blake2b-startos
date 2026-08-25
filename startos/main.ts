@@ -7,6 +7,7 @@ import {
   defaultActivationHeight,
   defaultChain,
   defaultHeadline,
+  headlineFor,
   rpcPort,
   testnet4ActivationHeight,
   testnet4Seeds,
@@ -32,7 +33,13 @@ export const main = sdk.setupMain(async ({ effects }) => {
 
   const env = {
     CHAIN: chain,
-    BLAKE2B_HEADLINE: store?.blake2bHeadline ?? defaultHeadline,
+    // On testnet4 this is fixed by the chain's own activation block, not a
+    // setting: a wrong value makes the node reject block 149537 and stop there.
+    // See headlineFor.
+    BLAKE2B_HEADLINE: headlineFor(
+      chain,
+      store?.blake2bHeadline ?? defaultHeadline,
+    ),
     // Written into the conf only on regtest; see entrypoint.sh. Passing it
     // regardless keeps this side simple and the decision in one place.
     BLAKE2B_ACTIVATION_HEIGHT: String(
@@ -63,6 +70,13 @@ export const main = sdk.setupMain(async ({ effects }) => {
   )
 
   const cli = ['bitcoin-cli', `-datadir=${dataDir}`, chainFlag(chain)]
+
+  // Health-check state, held across polls by the closure below. A node crossing
+  // the fork sits at activation-1 for a few seconds legitimately, so the stall
+  // is only reported once it has been seen this many times running.
+  const STALL_OBSERVATIONS = 3
+  let stalledAt: number | null = null
+  let stalledFor = 0
 
   return (
     sdk.Daemons.of(effects)
@@ -181,15 +195,39 @@ export const main = sdk.setupMain(async ({ effects }) => {
               }
             }
 
-            // Caught up with every peer, and still one block short of the fork.
-            // On testnet4 that is the signature of having only non-fork peers.
-            if (blocks === activation - 1 && chain === 'testnet4') {
-              return {
-                result: 'failure' as const,
-                message: i18n(
-                  'Stalled just below the BLAKE2b activation height. This node has no peers on the fork: testnet4’s DNS seeds return ordinary testnet4 nodes, which cannot serve the blocks after it. Add fork peers with the Set Peers action.',
-                ),
+            // One block short of the fork. On testnet4 this is the stall, and
+            // there are two quite different causes. Distinguishing them matters,
+            // because the remedies have nothing to do with each other.
+            //
+            // A node with no fork peers never learns the fork's headers, so its
+            // header count stops at the same place as its block count. A node
+            // that has the headers but cannot get past 149536 is *rejecting*
+            // those blocks, and by far the likeliest reason is a wrong
+            // `blake2b_headline`, which is a consensus check applied at exactly
+            // that height.
+            //
+            // Only reported after several consecutive observations, because a
+            // healthy node passes through this state briefly on its way across
+            // the fork.
+            if (chain === 'testnet4' && blocks === activation - 1) {
+              stalledFor = stalledAt === blocks ? stalledFor + 1 : 0
+              stalledAt = blocks
+              if (stalledFor >= STALL_OBSERVATIONS) {
+                return {
+                  result: 'failure' as const,
+                  message:
+                    headers > blocks
+                      ? i18n(
+                          'Stuck at the block before BLAKE2b activation. This node has the fork’s headers but is refusing its blocks, which almost always means the headline does not match. Check the logs for bad-headline.',
+                        )
+                      : i18n(
+                          'Stalled just below the BLAKE2b activation height. This node has no peers on the fork: testnet4’s DNS seeds return ordinary testnet4 nodes, which cannot serve the blocks after it. Add fork peers with the Set Peers action.',
+                        ),
+                }
               }
+            } else {
+              stalledFor = 0
+              stalledAt = null
             }
 
             return {
