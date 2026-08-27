@@ -68,5 +68,10 @@ RUN chmod +x /usr/local/bin/entrypoint.sh
 
 VOLUME /data
 EXPOSE 18443 18444
+# Create the settings mountpoint owned by the runtime user. A named volume
+# inherits the ownership of the image directory it covers, so doing this here
+# is what makes a fresh volume writable without anything running as root.
+RUN mkdir -p /config && chown bitcoin:bitcoin /config
+
 USER bitcoin
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]

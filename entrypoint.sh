@@ -21,11 +21,44 @@ if [ -z "${BLAKE2B_HEADLINE// /}" ]; then
     exit 1
 fi
 
+# A settings file, when one is mounted, outranks the environment. StartOS has
+# actions for this and passes the answers in as environment; Umbrel and plain
+# Docker have no settings form at all, so the page the gateway serves writes here
+# instead. Absent, nothing changes and the environment is the only source.
+SETTINGS="${SETTINGS_FILE:-/config/settings.json}"
+settings_get() {
+    [ -s "$SETTINGS" ] || return 1
+    sed -n "s/.*\"$1\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p" "$SETTINGS" | head -1
+}
+
 CHAIN="${CHAIN:-regtest}"
+_chain_from_file="$(settings_get chain || true)"
+if [ -n "${_chain_from_file:-}" ]; then
+    CHAIN="$_chain_from_file"
+    echo "knots-blake2b: chain from $SETTINGS"
+fi
+
 PRUNE="${PRUNE:-0}"
 ACTIVATION_HEIGHT="${BLAKE2B_ACTIVATION_HEIGHT:-}"
 # Space-separated host:port entries to dial in addition to the chain's own seeds.
 ADDNODES="${ADDNODES:-}"
+
+# testnet4 needs two things that are not the operator's to choose, so they are
+# not asked for. The headline is consensus: validation.cpp checks at the
+# activation height that the configured string appears in that block's coinbase,
+# and testnet4's block 149537 carries `Totoro`, so any other value rejects it and
+# everything after. The peers exist because testnet4's DNS seeds return ordinary
+# testnet4 nodes, which serve valid blocks up to 149536 and nothing after, so a
+# node with only them stalls one block below the fork looking healthy.
+TESTNET4_HEADLINE='Totoro'
+TESTNET4_SEEDS='82.67.102.15:48333 178.118.234.189:48333 64.177.11.149:48333 86.8.92.221:48333 136.36.150.88:48333 172.117.233.59:48333 184.179.145.52:48333 207.81.196.105:48333'
+if [ "$CHAIN" = "testnet4" ]; then
+    if [ "${BLAKE2B_HEADLINE}" != "$TESTNET4_HEADLINE" ]; then
+        echo "knots-blake2b: testnet4 requires the headline '$TESTNET4_HEADLINE'; using it"
+        BLAKE2B_HEADLINE="$TESTNET4_HEADLINE"
+    fi
+    ADDNODES="$TESTNET4_SEEDS ${ADDNODES}"
+fi
 
 case "$CHAIN" in
     regtest|testnet4) ;;
@@ -97,4 +130,45 @@ fi
 echo "knots-blake2b: chain=${CHAIN} prune=${PRUNE} activation=${activation_note}"
 echo "knots-blake2b: addnodes=${ADDNODES:-none}"
 
-exec bitcoind -datadir="$DATADIR" "$@"
+# Watch the settings file, and stop if it changes so the container's restart
+# policy brings us back reading the new one. Nothing here talks to Docker: the
+# alternative was handing a web page the Docker socket, which is root on the host
+# in exchange for saving a click. `exec` below replaces this shell with bitcoind
+# as PID 1, so signalling PID 1 is signalling bitcoind, and it shuts down cleanly.
+
+# Not `exec`. A process running as PID 1 does not get the default action for a
+# signal it has no handler for, so the kernel discards it. bitcoind installs a
+# SIGTERM handler and would have been fine; datum_gateway does not, and a settings
+# change printed "restarting to apply" while the service carried on running. So
+# the shell stays PID 1, the service is its child, and signalling the child works
+# the way signalling anything else works.
+bitcoind -datadir="$DATADIR" "$@" &
+APP_PID=$!
+
+# Forward what `docker stop` and StartOS send, so staying PID 1 does not turn a
+# normal shutdown into a ten-second wait and a kill.
+trap 'kill -TERM "$APP_PID" 2>/dev/null || true' TERM INT
+
+# Started unconditionally, and it hashes "absent" as a state of its own. Guarding
+# on the file existing meant a settings file created *after* boot was never
+# noticed, which is exactly what happens the first time somebody uses the page:
+# there is nothing to watch until they press save, and by then the watcher would
+# never have been started.
+(
+    _hash() { [ -s "$SETTINGS" ] && sha256sum "$SETTINGS" | cut -d' ' -f1 || echo none; }
+    _seen="$(_hash)"
+    while sleep 5; do
+        _now="$(_hash)"
+        if [ "$_now" != "$_seen" ]; then
+            echo "knots-blake2b: settings changed, restarting to apply"
+            kill -TERM "$APP_PID" 2>/dev/null || true
+            exit 0
+        fi
+    done
+) &
+
+# Exits when the service does, whether that is a crash, a stop, or the watcher
+# above deciding the settings changed. Either way the restart policy decides what
+# happens next.
+wait "$APP_PID"
+
