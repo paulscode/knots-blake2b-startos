@@ -87,14 +87,19 @@ esac
     echo "fallbackfee=0.0001"
     echo
     echo "[${CHAIN}]"
-    echo "rpcbind=0.0.0.0"
+    # When pruning, btc-rpc-proxy takes 18443, the port dependents resolve, and
+    # bitcoind steps aside to a loopback-only port behind it. The proxy answers
+    # for blocks this node has dropped by fetching them from peers, so a
+    # dependent sees a node that behaves as though it were archival. Unpruned,
+    # there is nothing to fetch and bitcoind holds 18443 itself.
+    echo "rpcbind=${RPC_BIND:-0.0.0.0}"
     echo "rpcallowip=${RPC_ALLOW_IP:-172.16.0.0/12}"
     # The internal ports stay the same on every chain, rather than following
     # each chain's default. They are this package's contract with dependents,
     # and StartOS gives every package its own bridge address, so there is
     # nothing to collide with. A dependent should not have to re-read a port
     # because the operator switched chains.
-    echo "rpcport=18443"
+    echo "rpcport=${RPC_PORT:-18443}"
     # Two p2p listeners. `bind` is the ordinary one, shared with anonymous
     # inbound peers. `whitebind` grants noban + download to whatever arrives on
     # it, and StartOS keeps that binding off the LAN, so it is reachable only by

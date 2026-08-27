@@ -1,3 +1,5 @@
+import { writeFile } from 'fs/promises'
+
 import { storeJson } from './fileModels/store.json'
 import { i18n } from './i18n'
 import { sdk } from './sdk'
@@ -8,7 +10,10 @@ import {
   defaultChain,
   defaultHeadline,
   headlineFor,
+  rpcAllowIpPruned,
+  rpcBindPruned,
   rpcPort,
+  rpcPortPruned,
   testnet4ActivationHeight,
   testnet4Seeds,
   type Chain,
@@ -31,6 +36,8 @@ export const main = sdk.setupMain(async ({ effects }) => {
     ...(store?.addnodes ?? []),
   ]
 
+  const pruning = (store?.prune ?? 1) !== 0
+
   const env = {
     CHAIN: chain,
     // On testnet4 this is fixed by the chain's own activation block, not a
@@ -47,6 +54,11 @@ export const main = sdk.setupMain(async ({ effects }) => {
     ),
     PRUNE: String(store?.prune ?? 1),
     FASTPRUNE: (store?.fastprune ?? true) ? '1' : '0',
+    // Pruning puts btc-rpc-proxy on 18443, the port dependents resolve, and
+    // moves bitcoind behind it on loopback. Unpruned there is nothing to fetch,
+    // so bitcoind keeps 18443 and no proxy runs.
+    RPC_PORT: String(pruning ? rpcPortPruned : rpcPort),
+    RPC_BIND: pruning ? rpcBindPruned : '0.0.0.0',
     ADDNODES: addnodes.join(' '),
     // No RPC_USER/RPC_PASSWORD: bitcoind writes a .cookie into the datadir and
     // the gateway reads it through a read-only mount of this volume. Nothing
@@ -54,7 +66,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
     //
     // The bridge is the only route to this port; it is never published to the
     // LAN. `rpcallowip` is wide because the bridge address is not knowable here.
-    RPC_ALLOW_IP: '0.0.0.0/0',
+    RPC_ALLOW_IP: pruning ? rpcAllowIpPruned : '0.0.0.0/0',
   }
 
   const subcontainer = sdk.SubContainer.of(
@@ -100,7 +112,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
         ready: {
           display: i18n('RPC'),
           fn: () =>
-            sdk.healthCheck.checkPortListening(effects, rpcPort, {
+            sdk.healthCheck.checkPortListening(effects, pruning ? rpcPortPruned : rpcPort, {
               successMessage: i18n('The node is accepting RPC'),
               errorMessage: i18n('The node is not accepting RPC yet'),
             }),
@@ -236,6 +248,86 @@ export const main = sdk.setupMain(async ({ effects }) => {
             }
           },
         },
+      })
+      // Serves the blocks this node has dropped, and only then. Returning null
+      // when unpruned is how a conditional daemon is expressed; there is nothing
+      // to fetch on an archival node and the port belongs to bitcoind.
+      //
+      // A dependent needs no notion of any of this. It resolves the same host
+      // and port either way, and gets a node that answers for the whole chain.
+      .addDaemon('proxy', async () => {
+        if (!pruning) return null
+
+        const proxySub = await sdk.SubContainer.eager(
+          effects,
+          { imageId: 'proxy' },
+          sdk.Mounts.of().mountVolume({
+            volumeId: 'main',
+            subpath: null,
+            mountpoint: dataDir,
+            readonly: true,
+          }),
+          'proxy-sub',
+        )
+
+        // bitcoind keeps a non-mainnet chain's cookie in a subdirectory named
+        // for that chain, and this package runs only such chains.
+        const cookie = `${dataDir}/${chain}/.cookie`
+
+        // Written by hand rather than through a TOML library: every value here
+        // is a number or a path this file computed, none of it is user input,
+        // and adding a dependency to serialize eight known lines is not worth
+        // the supply chain.
+        await writeFile(
+          `${proxySub.rootfs}/config.toml`,
+          [
+            `bitcoind_address = "127.0.0.1"`,
+            `bitcoind_port = ${rpcPortPruned}`,
+            `bind_address = "0.0.0.0"`,
+            `bind_port = ${rpcPort}`,
+            `cookie_file = "${cookie}"`,
+            // Dependents authenticate to the proxy with the same cookie
+            // bitcoind wrote, so nothing new is generated, stored or shared.
+            `passthrough_rpccookie = "${cookie}"`,
+            // Users derived from passthrough carry no fetch_blocks of their
+            // own, so this global switch is what grants them on-demand fetching
+            // of dropped blocks. Without it every getblock goes straight to
+            // bitcoind and a pruned block still fails.
+            `default_fetch_blocks = true`,
+            // Unset, the proxy asks every eligible peer for the same block at
+            // once and keeps the first valid answer, which is N copies of every
+            // fetch.
+            `max_peer_concurrency = 3`,
+            // A verbose transaction lookup asks for the same block twice by
+            // itself, so the repeat should not go back to the network.
+            `block_cache_size_mib = 64`,
+            '',
+          ].join('\n'),
+          { mode: 0o600 },
+        )
+
+        return {
+          subcontainer: proxySub,
+          exec: {
+            // The verbosity counter starts at Critical, a level the proxy has
+            // no call sites for, so unraised it cannot report a failure at all.
+            command: [
+              '/usr/bin/btc_rpc_proxy',
+              '--conf',
+              '/config.toml',
+              '-vv',
+            ] as [string, ...string[]],
+          },
+          ready: {
+            display: i18n('RPC Proxy'),
+            fn: () =>
+              sdk.healthCheck.checkPortListening(effects, rpcPort, {
+                successMessage: i18n('Serving RPC, and fetching pruned blocks'),
+                errorMessage: i18n('The RPC proxy is not ready'),
+              }),
+          },
+          requires: ['node' as const],
+        }
       })
   )
 })

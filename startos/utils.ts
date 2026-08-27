@@ -32,6 +32,23 @@ export const peerPort = 18444
  * and cannot reach these permissions. Same shape as the official bitcoind
  * package's `peer-local`, which is what dependents already expect to resolve.
  */
+/**
+ * Where bitcoind's RPC moves to when pruning is on.
+ *
+ * btc-rpc-proxy then takes 18443, the port dependents resolve, and forwards to
+ * this one, answering for blocks this node has dropped by fetching them from
+ * peers. A dependent therefore sees a node that behaves as though it were
+ * archival, with no change on its side. Same arrangement as the official
+ * bitcoind package's 8332/58332, on this package's regtest-derived numbering.
+ *
+ * Loopback only, and `rpcallowipPruned` with it: once the proxy is in front,
+ * nothing outside the container should reach bitcoind directly, because doing
+ * so would bypass the block fetching that makes pruning workable.
+ */
+export const rpcPortPruned = 58443
+export const rpcBindPruned = '127.0.0.1'
+export const rpcAllowIpPruned = '127.0.0.1/32'
+
 export const peerLocalHostId = 'peer-local'
 export const peerPortLocal = 18445
 

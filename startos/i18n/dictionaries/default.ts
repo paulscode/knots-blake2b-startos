@@ -46,6 +46,9 @@ const dict = {
   'The node restarts and begins following the chain you pick. Nothing is deleted: each chain keeps its own data, so switching back returns you to where you left off.': 42,
   'One address per line, as host:port. These are dialled in addition to the peers built into this service.': 43,
   'Add nodes to connect to, on top of the ones this service already knows. Only needed if the built-in peers stop working.': 44,
+  'RPC Proxy': 45,
+  'Serving RPC, and fetching pruned blocks': 46,
+  'The RPC proxy is not ready': 47,
 } as const
 
 /**

@@ -33,6 +33,17 @@ export const manifest = setupManifest({
       },
       arch: ['x86_64', 'aarch64'],
     },
+    // Serves the blocks a pruned node has dropped, by fetching them from
+    // peers and checking each against this node. Started only when pruning is
+    // on; see main.ts. Without it a pruned node of this flavor has nothing to
+    // answer for its dropped blocks, which is what kept pruning and header v2
+    // from composing.
+    proxy: {
+      source: {
+        dockerTag: 'ghcr.io/start9labs/btc-rpc-proxy:v0.8.0',
+      },
+      arch: ['x86_64', 'aarch64'],
+    },
   },
   dependencies: {},
 })
