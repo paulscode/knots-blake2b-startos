@@ -10,8 +10,8 @@ bitcoind gets the chance, with a message naming the reason.
 
 | | regtest | testnet4 |
 |---|---|---|
-| activation height | whatever you set, default 1 | 149537, compiled into `CTestNet4Params` |
-| `blake2b_headline` | yours to choose | **fixed at `Totoro`**, set by the package |
+| activation height | whatever you set, default 1 | 150027, compiled into `CTestNet4Params` |
+| `blake2b_headline` | yours to choose | **fixed at `Catbus`**, set by the package |
 | `-testactivationheight` | honoured | **accepted and silently ignored** |
 | peer discovery | none, there is nothing to discover | DNS seeds return non-fork nodes |
 | data | `/data/regtest` | `/data/testnet4` |
@@ -28,7 +28,7 @@ the operator switched chains.
 
 **`-testactivationheight` is regtest-only and fails silently elsewhere.** It is read by
 `CRegTestParams` and nowhere else, so on testnet4 bitcoind logs it as a config arg and
-ignores it: `getdeploymentinfo` still reports 149537. `entrypoint.sh` therefore does not
+ignores it: `getdeploymentinfo` still reports 150027. `entrypoint.sh` therefore does not
 write it on non-regtest chains, rather than writing config that looks effective and is
 not.
 
@@ -51,8 +51,8 @@ Verified: this package runs on a box with `bitcoind` and `datum` already install
 ## Upstream
 
 Built from a **pinned commit**, never a branch: `bitcoinknots/bitcoin` @
-`c25ad6bcd18fa65cd78f176a52be062411507741`, which is the tag
-`v29.4.1.knots20260508rc2`. Recorded as a SHA because a release candidate's tag can be
+`afbe91c299e16519f03902939fdbda8af9bd527d`, which is the tag
+`v29.4.1.knots20260508rc3`. Recorded as a SHA because a release candidate's tag can be
 moved and a SHA cannot. The BLAKE2b change is
 [bitcoinknots/bitcoin#359](https://github.com/bitcoinknots/bitcoin/pull/359).
 
@@ -63,14 +63,14 @@ StartOS build silently fetched an orphaned commit while the Dockerfile said othe
 Bump it in the Dockerfile and nowhere else.
 
 Why this tag rather than the `pow_hf_blake2b` development branch: **the testnet4
-activation height (149537) is compiled into `CTestNet4Params`, and only the
+activation height (150027) is compiled into `CTestNet4Params`, and only the
 bitcoinknots release-candidate tags carry it.** Regtest works from either tree, since
 there the height comes from `-testactivationheight=blake2b@N`, but a testnet4 node
 needs this one.
 
 Two consequences of the RC, both verified by running the image:
 
-- **It refuses to run on mainnet.** `init.cpp:1077` rejects `ChainType::MAIN` with
+- **It refuses to run on mainnet.** `init.cpp:1079` rejects `ChainType::MAIN` with
   "This release candidate only supports test networks" unless
   `-allow_mainnet_test_only` is passed. So this package and the mainnet Knots forks
   are not interchangeable.
@@ -84,18 +84,19 @@ Two consequences of the RC, both verified by running the image:
 
 ## The headline is not a setting on testnet4
 
-`validation.cpp:4639` checks, at the activation height and only there, that the
+`validation.cpp:4565` checks, at the activation height and only there, that the
 configured `blake2b_headline` appears as a substring of that block's coinbase
-`scriptSig`. testnet4's block 149537 carries **`Totoro`** (coinbase
-`d1ef84d4...c17342`, scriptSig `0321480207546f746f726f00...`). Any other value and
-the node rejects 149537 and every block after it with
+`scriptSig`. testnet4's block 150027 carries **`Catbus`** (coinbase
+`41140832...1e7a7d`, scriptSig `030b4a0206436174627573...`, which is a 3-byte BIP34
+height push of 150027 followed by a 6-byte push of the headline). Any other value and
+the node rejects 150027 and every block after it with
 `AcceptBlock FAILED (bad-headline, Headline is wrong)`.
 
 So on testnet4 the headline is a property of the chain, not of the operator, and
 `headlineFor()` in `utils.ts` supplies it. The store's `blake2bHeadline` applies to
 regtest only, where you are making your own chain and any consistent value works.
 
-This was found the hard way: a node with good peers stalled at 149536 for an hour
+This was found the hard way: a node with good peers stalled at 150026 for an hour
 before the log was read closely enough. **It looks identical to having no fork
 peers** from the outside, which is why the health check below distinguishes them.
 
@@ -104,10 +105,10 @@ peers** from the outside, which is why the health check below distinguishes them
 The BLAKE2b fork shares testnet4's genesis block, default port and magic bytes. So
 testnet4's DNS seeds (`seed.testnet4.bitcoin.sprovoost.nl`, `seed.testnet4.wiz.biz`)
 return ordinary testnet4 nodes, this node connects to them happily, and they serve
-valid blocks right up to 149537 because both chains share that history. Past it they
+valid blocks right up to 150027 because both chains share that history. Past it they
 have nothing this node will accept.
 
-The failure is therefore **not** following the wrong chain. It is stalling at 149536
+The failure is therefore **not** following the wrong chain. It is stalling at 150026
 with peers connected and nothing visibly wrong. The `Set Peers` action is the fix
 (`addnodes` in `store.json`, merged with `testnet4Seeds` in `utils.ts`, which is
 deliberately empty until there are addresses worth committing to).
@@ -124,11 +125,11 @@ and testnet4, plus `getblockchaininfo` for the heights:
 | `headers > blocks` | loading | still downloading |
 | otherwise | loading | before activation, working normally |
 | `hardfork` absent | failure | build has no BLAKE2b schedule for this chain |
-| testnet4 and `activation != 149537` | failure | the pin moved a consensus height |
+| testnet4 and `activation != 150027` | failure | the pin moved a consensus height |
 
 The `headers` count is what separates the two stall causes, and it is exact rather
 than a guess: a node with no fork peers never *learns* the fork's headers, so its
-header count stops at 149536 alongside its block count. A node with a wrong
+header count stops at 150026 alongside its block count. A node with a wrong
 headline has all 170,000-odd headers and is refusing to connect the blocks. Both
 were observed.
 
@@ -139,7 +140,7 @@ false-positive on every successful sync.
 **It keys on height, not on `hardfork.active`, and that distinction is load-bearing.**
 Measured on a regtest chain with activation at 20: `active` becomes `true` at height
 **19**, because it reports whether the *next* block is subject to the rule. A testnet4
-node stalled at 149536 therefore has `active: true`, so keying success off it would
+node stalled at 150026 therefore has `active: true`, so keying success off it would
 report "Following the BLAKE2b chain" for precisely the situation the check exists to
 catch. This was caught by running it, not by reading it.
 
@@ -251,8 +252,8 @@ Settings live in `store.json` on the main volume, typed by
 | Key | Default | Notes |
 |---|---|---|
 | `chain` | `regtest` | `regtest` or `testnet4`; set by the Select Chain action |
-| `blake2bHeadline` | `BLAKE2b lab 2026-08-21` | **regtest only**; on testnet4 the chain fixes it at `Totoro` |
-| `activationHeight` | **1** | regtest only; ignored on testnet4, where it is 149537 and compiled in |
+| `blake2bHeadline` | `BLAKE2b lab 2026-08-21` | **regtest only**; on testnet4 the chain fixes it at `Catbus` |
+| `activationHeight` | **1** | regtest only; ignored on testnet4, where it is 150027 and compiled in |
 | `addnodes` | `[]` | `host:port` per entry; set by the Set Peers action, merged with `testnet4Seeds` |
 | `prune` / `fastprune` | 1 / true | manual pruning; `fastprune` is written on regtest only |
 
@@ -288,7 +289,7 @@ StartOS 0.4.0.x, switched regtest to testnet4 and back through the Select Chain 
 and the 56-block regtest chain came back with the same `hashBestChain`. On testnet4 the
 generated conf carried the `addnode` lines from Set Peers and omitted
 `testactivationheight` and `fastprune`. The `chain` health check reported
-`Before the BLAKE2b activation 0/149537` on testnet4 and `Following the BLAKE2b chain
+`Before the BLAKE2b activation 0/150027` on testnet4 and `Following the BLAKE2b chain
 (56)` back on regtest.
 
 Not done: **testnet4 has not been synced through this package**, because that needs a

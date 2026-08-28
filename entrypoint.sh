@@ -46,11 +46,11 @@ ADDNODES="${ADDNODES:-}"
 # testnet4 needs two things that are not the operator's to choose, so they are
 # not asked for. The headline is consensus: validation.cpp checks at the
 # activation height that the configured string appears in that block's coinbase,
-# and testnet4's block 149537 carries `Totoro`, so any other value rejects it and
+# and testnet4's block 150027 carries `Catbus`, so any other value rejects it and
 # everything after. The peers exist because testnet4's DNS seeds return ordinary
-# testnet4 nodes, which serve valid blocks up to 149536 and nothing after, so a
+# testnet4 nodes, which serve valid blocks up to 150026 and nothing after, so a
 # node with only them stalls one block below the fork looking healthy.
-TESTNET4_HEADLINE='Totoro'
+TESTNET4_HEADLINE='Catbus'
 TESTNET4_SEEDS='82.67.102.15:48333 178.118.234.189:48333 64.177.11.149:48333 86.8.92.221:48333 136.36.150.88:48333 172.117.233.59:48333 184.179.145.52:48333 207.81.196.105:48333'
 if [ "$CHAIN" = "testnet4" ]; then
     if [ "${BLAKE2B_HEADLINE}" != "$TESTNET4_HEADLINE" ]; then
@@ -63,7 +63,7 @@ fi
 case "$CHAIN" in
     regtest|testnet4) ;;
     main|mainnet)
-        echo "FATAL: this build refuses mainnet (init.cpp:1077, 'This release" >&2
+        echo "FATAL: this build refuses mainnet (init.cpp:1079, 'This release" >&2
         echo "       candidate only supports test networks'). Nothing here can" >&2
         echo "       override that, and it should not." >&2
         exit 1 ;;
@@ -115,7 +115,7 @@ esac
     echo "whitebind=0.0.0.0:18445"
     # Regtest only. `-testactivationheight` is read by CRegTestParams and nowhere
     # else, so on testnet4 bitcoind accepts it, logs it, and ignores it: the
-    # height stays the compiled-in 149537. Writing it there would be config that
+    # height stays the compiled-in 150027. Writing it there would be config that
     # looks effective and is not, so it is not written.
     if [ "$CHAIN" = "regtest" ] && [ -n "$ACTIVATION_HEIGHT" ]; then
         echo "testactivationheight=blake2b@${ACTIVATION_HEIGHT}"
@@ -130,7 +130,7 @@ echo "knots-blake2b: pinned commit $(cat /etc/knots-pinned-commit)"
 if [ "$CHAIN" = "regtest" ]; then
     activation_note="${ACTIVATION_HEIGHT:-none}"
 else
-    activation_note="149537 (compiled in, not configurable)"
+    activation_note="150027 (compiled in, not configurable)"
 fi
 echo "knots-blake2b: chain=${CHAIN} prune=${PRUNE} activation=${activation_note}"
 echo "knots-blake2b: addnodes=${ADDNODES:-none}"

@@ -24,7 +24,7 @@ const shape = z.object({
   chain: z.enum(chains as unknown as [Chain, ...Chain[]]).catch(defaultChain),
 
   // Regtest-only. Where SHA256d stops and BLAKE2b begins. Ignored on testnet4,
-  // where the activation height is compiled into the binary at 149537, so the
+  // where the activation height is compiled into the binary at 150027, so the
   // entrypoint does not write it there rather than writing config that looks
   // effective and is not.
   activationHeight: z.number().int().nonnegative().catch(defaultActivationHeight),

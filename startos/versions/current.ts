@@ -1,27 +1,20 @@
 import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
 
 const notes =
-  'This release can join the public BLAKE2b test network (testnet4), not just a private chain. ' +
-  'Use the new Select Chain action to pick one. Nothing is deleted when you switch: each chain ' +
-  'keeps its own data, so switching back returns you to where you left off. ' +
-  'It ships with peers for the public network, so choosing that network is all you have to do. ' +
-  'They are needed because testnet4’s own peer discovery returns nodes that are not on the fork, ' +
-  'and without one the node syncs to a block below the activation height and stops there. The new ' +
-  'Set Peers action is there for if the shipped ones go offline. ' +
-  'On the public network the headline is set for you, because that chain has already committed ' +
-  'to one and a node that disagrees rejects the first BLAKE2b block. The headline setting now ' +
-  'applies to private chains only. ' +
-  'A new Chain health check reports which of those two situations you are in, rather than just ' +
-  'that the node is running. ' +
-  'Other services on this server can now pull historical blocks from it without being ' +
-  'disconnected, which an Electrum server needs. ' +
-  'The node itself is rebuilt from the Bitcoin Knots release candidate v29.4.1.knots20260508rc2 ' +
-  'instead of a development branch, which is a different consensus revision and is what knows ' +
-  'the testnet4 activation height. Private chains behave exactly as before.' +
-  'Adds chain selection for deployments without a settings form. On StartOS nothing changes: the Select Chain action remains the way to switch.'
+  'Follows the current public BLAKE2b test network. The test network was restarted on a ' +
+  'later Bitcoin Knots release candidate, which moved where BLAKE2b begins from block ' +
+  '149537 to block 150027 and changed the headline that block commits to. Those two values ' +
+  'are consensus, so the previous release cannot follow the chain that is live now: it ' +
+  'expects the fork at a height where the live chain still has an ordinary block, and stops ' +
+  'there. This release is rebuilt from that candidate, v29.4.1.knots20260508rc3, and knows ' +
+  'both new values. ' +
+  'If you were on the public network, your node has been stuck below the fork and will ' +
+  'resume on its own once this release starts. Nothing is deleted and no action is needed. ' +
+  'Private chains are unaffected: you choose the activation height and headline there, and ' +
+  'neither is touched by this.'
 
 export const current = VersionInfo.of({
-  version: '1.0.0:17',
+  version: '1.0.0:18',
   releaseNotes: {
     en_US: notes,
     es_ES: notes,

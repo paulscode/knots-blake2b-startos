@@ -85,11 +85,11 @@ export const defaultActivationHeight = 1
  *
  * `regtest` is a private chain of your own, where the activation height is
  * whatever you set. `testnet4` is the public BLAKE2b test network, where the
- * activation height is 149537 and is compiled into the binary, not configurable.
+ * activation height is 150027 and is compiled into the binary, not configurable.
  *
  * Mainnet is deliberately absent, and not only by our choice: the release
  * candidate this package builds refuses `ChainType::MAIN` outright
- * (`init.cpp:1077`, "This release candidate only supports test networks").
+ * (`init.cpp:1079`, "This release candidate only supports test networks").
  */
 export const chains = ['regtest', 'testnet4'] as const
 export type Chain = (typeof chains)[number]
@@ -99,28 +99,32 @@ export const defaultChain: Chain = 'regtest'
  * The height at which BLAKE2b activates on testnet4, compiled into
  * `CTestNet4Params`. Not settable: `-testactivationheight` is read only by
  * `CRegTestParams`, so on testnet4 it is accepted and silently ignored
- * (verified: `getdeploymentinfo` still reports 149537 with it set).
+ * (verified: `getdeploymentinfo` still reports 150027 with it set).
  */
-export const testnet4ActivationHeight = 149537
+export const testnet4ActivationHeight = 150027
 
 /**
  * The headline that testnet4's BLAKE2b chain actually committed to.
  *
  * This is consensus, not preference, and it is not ours to choose.
- * `validation.cpp:4639` checks, at the activation height only, that the
+ * `validation.cpp:4565` checks, at the activation height only, that the
  * configured headline appears as a substring of the coinbase `scriptSig`.
- * testnet4's block 149537 carries `Totoro` (coinbase
- * d1ef84d41c16813085aff61f098255b59e9ea07f9d42168ff078d06295c17342,
- * scriptSig `0321480207546f746f726f00...`), so any other value makes the node
+ * testnet4's block 150027 carries `Catbus` (coinbase
+ * 411408322b54d1239fb307c39fc066fdd27f2b3503a8b14bd5354fa9451e7a7d,
+ * scriptSig `030b4a0206436174627573...`: a 3-byte BIP34 height push of 150027
+ * then a 6-byte push of the headline), so any other value makes the node
  * reject that block and every block after it.
  *
- * Getting this wrong is a nasty failure: the node syncs happily to 149536 and
+ * Both the height and the headline are re-cut with every release candidate, so
+ * neither survives a repin. See UPDATING.md.
+ *
+ * Getting this wrong is a nasty failure: the node syncs happily to 150026 and
  * stops, logging `bad-headline` but otherwise looking exactly like a node that
  * simply has no peers on the fork. It cost an afternoon to find, which is why the
  * package now sets it rather than offering it, and why the `chain` health check
  * tells the two causes apart.
  */
-export const testnet4Headline = 'Totoro'
+export const testnet4Headline = 'Catbus'
 
 /** The headline a chain requires. Only regtest leaves the choice open. */
 export function headlineFor(chain: Chain, configured: string): string {
@@ -137,14 +141,14 @@ export function chainFlag(chain: Chain): string {
  *
  * These exist because testnet4's DNS seeds cannot find this chain. The fork
  * shares testnet4's genesis block, magic bytes and default port, so the seeds
- * return ordinary testnet4 nodes: they serve valid blocks up to 149536 and have
+ * return ordinary testnet4 nodes: they serve valid blocks up to 150026 and have
  * nothing after it. Measured 2026-08-24: all 33 addresses the two seeds returned
  * were on the SHA256d chain. Without a starting point a new node stalls one block
  * below the fork looking healthy, so shipping some is the difference between the
  * package working and not.
  *
  * Every address below was verified, not collected: each was asked for the headers
- * following block 149536 and answered with a 164-byte header v2, and each
+ * following block 150026 and answered with a 164-byte header v2, and each
  * reported the same tip height as `mempool.guide/testnet4` at the time. See
  * `spikes/blake2b-testnet4/` in the pruned-electrs repo for the tool that found
  * them, which is the thing to re-run rather than trusting this list.

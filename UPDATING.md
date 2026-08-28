@@ -12,7 +12,7 @@ git commit, and the trust model is a pinned SHA rather than a signer quorum.
 
 ```dockerfile
 ARG KNOTS_REPO=https://github.com/bitcoinknots/bitcoin.git
-ARG KNOTS_REF=c25ad6bcd18fa65cd78f176a52be062411507741
+ARG KNOTS_REF=afbe91c299e16519f03902939fdbda8af9bd527d
 ```
 
 It is deliberately **not** a `buildArg` in `startos/manifest/index.ts`. It used to be
@@ -31,22 +31,52 @@ silently cross consensus revisions between package versions.
 ```bash
 git ls-remote --tags https://github.com/bitcoinknots/bitcoin.git 'v29.*knots*'
 # then resolve the one you want to a SHA
-git rev-parse v29.4.1.knots20260508rc2^{commit}
+git rev-parse v29.4.1.knots20260508rc3^{commit}
 ```
 
 Choosing a tag is a consensus decision, not a routine bump. What matters:
 
 - **Which chains have `Blake2bHeight` set.** `git grep -n Blake2bHeight -- src/kernel/chainparams.cpp`
-  on the candidate tag. The testnet4 activation (149537, in `CTestNet4Params`) exists
+  on the candidate tag. The testnet4 activation (150027, in `CTestNet4Params`) exists
   only in the release-candidate tags, not in `luke-jr/bitcoin`'s `pow_hf_blake2b`
   branch. Repinning to a tree without it silently turns a testnet4 node into an
-  ordinary testnet4 node that will fork at 149537.
+  ordinary testnet4 node that will fork at 150027.
+- **What the activation height and headline now are.** Both change with every release
+  candidate, and neither is derivable from the other. rc3's `chainparams.cpp` says so
+  outright: the flag day is "set at release cut". Observed so far:
+
+  | tag | testnet4 `Blake2bHeight` | headline |
+  |---|---|---|
+  | `...rc1` | | `RC1` |
+  | `...rc2` | 149537 | `Totoro` |
+  | `...rc3` | 150027 | `Catbus` |
+
+  Two RCs with different heights are **incompatible chains**, not two views of one: an
+  rc2 node enforces BLAKE2b from 149537 and so rejects the ordinary SHA256d blocks an
+  rc3 chain still carries there. Repinning without moving `testnet4ActivationHeight`
+  and `testnet4Headline` in `startos/utils.ts` gives a node that cannot follow the live
+  chain at all.
+
+  The height is in the tag's `CTestNet4Params`. The headline is **not in the source** and
+  cannot be read from it: it is whatever the miners committed to. Take it from the
+  activation block's coinbase, which is a short push immediately after the 3-byte BIP34
+  height push:
+
+  ```bash
+  H=$(curl -s https://mempool.guide/testnet4/api/block-height/<activation-height>)
+  curl -s "https://mempool.guide/testnet4/api/block/$H/txs/0" \
+    | python3 -c "import sys,json;print(json.load(sys.stdin)[0]['vin'][0]['scriptsig'])"
+  ```
+
+  The same command confirms the height: fetch a candidate height's header and check
+  whether it is 80 bytes or 164.
+
 - **Whether the configure flags changed.** `RDTS_CONSENT` is required by
   `luke-jr/bitcoin` and does not exist in the RC tags. Passing an unknown `-D` is only
   a cmake warning, so this fails quietly in the direction that matters less; omitting a
   required one fails the build loudly.
-- **Whether the init guards changed.** In rc2, `src/init.cpp:1077` refuses mainnet and
-  `src/init.cpp:1095` requires `blake2b_headline` on every chain. Both shape what the
+- **Whether the init guards changed.** In rc3, `src/init.cpp:1079` refuses mainnet and
+  `src/init.cpp:1097` requires `blake2b_headline` on every chain. Both shape what the
   package must set.
 
 ## Applying the bump
@@ -92,5 +122,5 @@ needs no sync:
 
 ```bash
 # with connect=0 and blake2b_headline set, at genesis
-bitcoin-cli -testnet4 getdeploymentinfo   # expect "hardfork": { "height": 149537 }
+bitcoin-cli -testnet4 getdeploymentinfo   # expect "hardfork": { "height": 150027 }
 ```

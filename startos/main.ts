@@ -41,7 +41,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
   const env = {
     CHAIN: chain,
     // On testnet4 this is fixed by the chain's own activation block, not a
-    // setting: a wrong value makes the node reject block 149537 and stop there.
+    // setting: a wrong value makes the node reject block 150027 and stop there.
     // See headlineFor.
     BLAKE2B_HEADLINE: headlineFor(
       chain,
@@ -126,7 +126,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
        * check exists rather than a plain sync-progress bar. On testnet4 the
        * BLAKE2b fork shares the magic bytes, default port and genesis block of
        * ordinary testnet4, so a fork node and a Core node connect to each other
-       * happily and exchange headers. They disagree only from height 149537,
+       * happily and exchange headers. They disagree only from height 150027,
        * where this node rejects the other chain's 80-byte SHA256d headers.
        *
        * So the failure is not silently following the wrong chain: it is sitting
@@ -188,7 +188,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
             // Height, not `hardfork.active`. Measured: `active` flips to true
             // one block *before* the activation height, because it reports
             // whether the next block is subject to the rule. A testnet4 node
-            // stalled at 149536 therefore has `active: true`, and keying success
+            // stalled at 150026 therefore has `active: true`, and keying success
             // off it would report "following the BLAKE2b chain" for exactly the
             // situation this check exists to catch.
             if (blocks >= activation) {
@@ -213,7 +213,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
             //
             // A node with no fork peers never learns the fork's headers, so its
             // header count stops at the same place as its block count. A node
-            // that has the headers but cannot get past 149536 is *rejecting*
+            // that has the headers but cannot get past 150026 is *rejecting*
             // those blocks, and by far the likeliest reason is a wrong
             // `blake2b_headline`, which is a consensus check applied at exactly
             // that height.

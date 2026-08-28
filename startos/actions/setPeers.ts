@@ -23,9 +23,9 @@ export const inputSpec = InputSpec.of({
  * shares testnet4's magic bytes, default port and genesis block, so its DNS
  * seeds (`seed.testnet4.bitcoin.sprovoost.nl`, `seed.testnet4.wiz.biz`) hand
  * back ordinary testnet4 nodes that are not on the fork. Those peers are useful
- * up to height 149537, since both chains share that history, and useless after
+ * up to height 150027, since both chains share that history, and useless after
  * it. Without at least one peer that is actually on the fork, the node syncs to
- * 149536 and stops there looking perfectly healthy, which is what the Chain
+ * 150026 and stops there looking perfectly healthy, which is what the Chain
  * health check is for.
  *
  * A free-text list rather than a curated default, because a hardcoded peer list

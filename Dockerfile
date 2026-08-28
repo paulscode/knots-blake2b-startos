@@ -2,22 +2,22 @@
 #
 # Pinned by commit, never by branch: a floating build would silently cross
 # consensus revisions (PLAN section 8). The commit below is the tag
-# v29.4.1.knots20260508rc2, recorded as a SHA because a release candidate's tag
+# v29.4.1.knots20260508rc3, recorded as a SHA because a release candidate's tag
 # can be moved and a SHA cannot.
 #
 # Why this tag rather than luke-jr's development branch: the testnet4 BLAKE2b
-# activation height (149537) is compiled into CTestNet4Params, and it is only
+# activation height (150027) is compiled into CTestNet4Params, and it is only
 # there in the bitcoinknots release-candidate tags. Regtest works from either
 # tree, because there the height comes from -testactivationheight=blake2b@N, but
 # testnet4 needs this one.
 #
 # This image cannot serve a mainnet node, and that is upstream's choice, not
-# ours: init.cpp:1077 refuses ChainType::MAIN outright ("This release candidate
+# ours: init.cpp:1079 refuses ChainType::MAIN outright ("This release candidate
 # only supports test networks") unless -allow_mainnet_test_only is passed.
 # Verified by running it. So the mainnet Knots forks stay on signed releases and
 # this package stays on test networks; the two are not interchangeable.
 #
-# Note also init.cpp:1095: blake2b_headline is mandatory on *every* chain, not
+# Note also init.cpp:1097: blake2b_headline is mandatory on *every* chain, not
 # just where BLAKE2b is scheduled. entrypoint.sh already requires it.
 #
 # There is no signed release for this tag. bitcoinknots.org publishes nothing
@@ -28,7 +28,7 @@
 FROM debian:bookworm-slim AS build
 
 ARG KNOTS_REPO=https://github.com/bitcoinknots/bitcoin.git
-ARG KNOTS_REF=c25ad6bcd18fa65cd78f176a52be062411507741
+ARG KNOTS_REF=afbe91c299e16519f03902939fdbda8af9bd527d
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential cmake pkgconf python3 git ca-certificates \

@@ -9,7 +9,7 @@ It runs one of two chains, and you pick which with the **Select Chain** action:
   to, and you mine every block yourself. This is the default and the right choice for
   finding out whether your miner works.
 - **Public BLAKE2b test network (testnet4).** Shared with other testers. BLAKE2b
-  starts at block 149537 there. Read the section below before choosing it, because it
+  starts at block 150027 there. Read the section below before choosing it, because it
   needs one extra step that the private chain does not.
 
 Coins on either chain are worthless by construction. Mainnet is not offered, and this
@@ -31,10 +31,10 @@ knowing why they are needed at all.
 The BLAKE2b chain shares testnet4's network identity: the same genesis block, the
 same default port, the same magic bytes. So the addresses testnet4's automatic peer
 discovery hands out are real testnet4 nodes, and your node will connect to them
-happily. They are even useful, up to block 149537, because both chains share that
+happily. They are even useful, up to block 150027, because both chains share that
 history. After it, they have nothing your node will accept.
 
-The result is a node that syncs to block 149536 and stops, with peers connected and
+The result is a node that syncs to block 150026 and stops, with peers connected and
 nothing obviously wrong. The **Chain** health check exists to say so plainly: it
 reports *Stalled just below the BLAKE2b activation height* rather than leaving you to
 work it out.
@@ -108,7 +108,7 @@ SHA256d until that height, and a Sia miner cannot mine SHA256d: it would connect
 receive work it cannot use, and appear to do nothing.
 
 On the public test network this setting does nothing at all. The activation height
-there is 149537 and it is fixed in the software, not configurable, so the node ignores
+there is 150027 and it is fixed in the software, not configurable, so the node ignores
 anything you set.
 
 **The headline** is a piece of text that has to appear in the first BLAKE2b block,

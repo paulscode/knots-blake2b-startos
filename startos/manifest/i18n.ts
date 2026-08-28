@@ -10,7 +10,7 @@ const longEn =
   'Sia-compatible BLAKE2b ASIC. ' +
   'It runs either a private chain of your own, where you choose the activation ' +
   'height and mine every block yourself, or the public BLAKE2b test network ' +
-  '(testnet4), where activation is fixed at height 149537. It comes with peers ' +
+  '(testnet4), where activation is fixed at height 150027. It comes with peers ' +
   'for that network, because its DNS seeds return ordinary testnet4 nodes that ' +
   'are not on the fork. Coins on either chain are worthless by ' +
   'construction. Mainnet is not offered, and this build refuses it outright. ' +

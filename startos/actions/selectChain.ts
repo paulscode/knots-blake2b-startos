@@ -9,7 +9,7 @@ export const inputSpec = InputSpec.of({
   chain: Value.select({
     name: i18n('Chain'),
     description: i18n(
-      'A private chain is yours alone: you pick the activation height and mine every block yourself. The public test network is shared with other testers, and BLAKE2b activates there at height 149537, which is fixed in the software rather than configurable.',
+      'A private chain is yours alone: you pick the activation height and mine every block yourself. The public test network is shared with other testers, and BLAKE2b activates there at height 150027, which is fixed in the software rather than configurable.',
     ),
     values: {
       regtest: i18n('Private chain (regtest)'),

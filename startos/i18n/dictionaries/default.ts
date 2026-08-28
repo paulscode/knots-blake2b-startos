@@ -34,7 +34,7 @@ const dict = {
   'Select Chain': 30,
   'Choose whether this node runs its own private chain or joins the public BLAKE2b test network.': 31,
   'The node restarts and begins following the chain you pick. Nothing is deleted: each chain keeps its own data, so switching back returns you to where you left off. On the public test network you must also add peers, because its DNS seeds return nodes that are not on the fork.': 32,
-  'A private chain is yours alone: you pick the activation height and mine every block yourself. The public test network is shared with other testers, and BLAKE2b activates there at height 149537, which is fixed in the software rather than configurable.': 33,
+  'A private chain is yours alone: you pick the activation height and mine every block yourself. The public test network is shared with other testers, and BLAKE2b activates there at height 150027, which is fixed in the software rather than configurable.': 33,
   'Private chain (regtest)': 34,
   'Public BLAKE2b test network (testnet4)': 35,
   'Set Peers': 36,
