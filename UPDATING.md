@@ -99,6 +99,32 @@ Choosing a tag is a consensus decision, not a routine bump. What matters:
   `src/init.cpp:1097` requires `blake2b_headline` on every chain. Both shape what the
   package must set.
 
+## Three packages import from this one
+
+`electrs-pruned-startos`, `mempool-pruned-startos` and `datum-blake2b-startos` all declare
+
+```json
+"knots-blake2b-startos": "github:paulscode/knots-blake2b-startos#main"
+```
+
+and import from `startos/utils` and `startos/manifest`. The reference floats on `main`, so what
+a given tree has is whatever npm last resolved, and a change here reaches them at their next
+install rather than when it is made.
+
+What they actually import is the interface surface: `rpcHostId`, `rpcPort`, `peerLocalHostId`,
+`peerPortLocal`, `chains`, `defaultChain`, `manifest`, and `getPayoutAddress`. **None of them
+imports `testnet4ActivationHeight`, `testnet4Headline` or `headlineFor`**, which is why the rc3
+bump needed no release from any of them. Checked, not assumed:
+
+```bash
+grep -rn "testnet4ActivationHeight\|testnet4Headline\|headlineFor" <pkg>/startos
+```
+
+So before releasing a change here, check which side of that line it falls on. Moving an
+activation height or a headline is contained. Renaming an interface id or changing a port is
+not, and will reach three packages silently at their next `npm install`, with no version bump to
+signal it. In that case bump and rebuild them too.
+
 ## Applying the bump
 
 1. Edit `KNOTS_REF` (and `KNOTS_REPO` if the tag moved repos) in `Dockerfile`.
