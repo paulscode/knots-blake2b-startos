@@ -131,7 +131,8 @@ export const main = sdk.setupMain(async ({ effects }) => {
        *
        * So the failure is not silently following the wrong chain: it is sitting
        * one block below the fork, fully connected, looking synced, forever.
-       * `getdeploymentinfo` reports a `hardfork` object carrying the activation
+       * `getdeploymentinfo` reports a `blake2b` object (`hardfork` before rc3)
+       * carrying the activation
        * height and whether the tip has crossed it, on both regtest and testnet4,
        * which is exactly enough to say which of those two situations this is.
        */
@@ -159,7 +160,13 @@ export const main = sdk.setupMain(async ({ effects }) => {
             }
 
             const deployments = await read(['getdeploymentinfo'])
-            const hardfork = deployments?.hardfork
+            // rc3 renamed this top-level key from `hardfork` to `blake2b`
+            // (rpc/blockchain.cpp, `deploymentinfo.pushKV`); its contents are
+            // unchanged, `height` and `active`. Read either, so a repin in
+            // either direction cannot turn this check into a false failure
+            // claiming the node is not running the fork. Verified against a
+            // built rc3 binary: the key is `blake2b`.
+            const hardfork = deployments?.blake2b ?? deployments?.hardfork
             if (!hardfork) {
               // Would mean a build with no BLAKE2b schedule on this chain, which
               // this image should not be able to produce. Say so rather than

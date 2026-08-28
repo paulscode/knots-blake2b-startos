@@ -114,7 +114,8 @@ with peers connected and nothing visibly wrong. The `Set Peers` action is the fi
 deliberately empty until there are addresses worth committing to).
 
 The **`chain` health check** exists to name that state. It reads `getdeploymentinfo`,
-whose `hardfork` object carries the activation height and is present on both regtest
+whose `blake2b` object carries the activation height and is present on both regtest
+(rc3 renamed this key from `hardfork`; the health check reads either)
 and testnet4, plus `getblockchaininfo` for the heights:
 
 | condition | result | meaning |
@@ -124,7 +125,7 @@ and testnet4, plus `getblockchaininfo` for the heights:
 | `blocks == activation - 1` and `headers > blocks`, testnet4, 3 polls | **failure** | has the headers, refusing the blocks: wrong headline |
 | `headers > blocks` | loading | still downloading |
 | otherwise | loading | before activation, working normally |
-| `hardfork` absent | failure | build has no BLAKE2b schedule for this chain |
+| `blake2b` and `hardfork` both absent | failure | build has no BLAKE2b schedule for this chain |
 | testnet4 and `activation != 150027` | failure | the pin moved a consensus height |
 
 The `headers` count is what separates the two stall causes, and it is exact rather
@@ -137,7 +138,7 @@ The three-poll delay is because a healthy node passes through `activation - 1`
 briefly on its way across the fork, so reporting on the first observation would
 false-positive on every successful sync.
 
-**It keys on height, not on `hardfork.active`, and that distinction is load-bearing.**
+**It keys on height, not on `blake2b.active`, and that distinction is load-bearing.**
 Measured on a regtest chain with activation at 20: `active` becomes `true` at height
 **19**, because it reports whether the *next* block is subject to the rule. A testnet4
 node stalled at 150026 therefore has `active: true`, so keying success off it would

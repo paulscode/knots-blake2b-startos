@@ -75,6 +75,26 @@ Choosing a tag is a consensus decision, not a routine bump. What matters:
   `luke-jr/bitcoin` and does not exist in the RC tags. Passing an unknown `-D` is only
   a cmake warning, so this fails quietly in the direction that matters less; omitting a
   required one fails the build loudly.
+- **Whether the RPC shape changed.** rc3 renamed `getdeploymentinfo`'s top-level `hardfork`
+  key to `blake2b` (`src/rpc/blockchain.cpp`, the `deploymentinfo.pushKV` call). The contents
+  were unchanged. Nothing failed to compile and nothing warned; the Chain health check simply
+  stopped finding the key and would have reported "not running the fork" on every start, which
+  is a confident wrong answer rather than a crash. It now reads either key. Diff the RPC
+  results the package parses, not just consensus code:
+
+  ```bash
+  git diff <old-tag> <new-tag> -- src/rpc/blockchain.cpp | grep -E '^[-+].*pushKV'
+  ```
+
+  Then check the built binary rather than the source, which is how this one was caught:
+
+  ```bash
+  docker run --rm --entrypoint sh <image> -c \
+    'bitcoind -datadir=/tmp/d -testnet4 -blake2b_headline=<headline> -connect=0 -daemon \
+       -rpcuser=u -rpcpassword=p; sleep 5; \
+     bitcoin-cli -datadir=/tmp/d -testnet4 -rpcuser=u -rpcpassword=p getdeploymentinfo'
+  ```
+
 - **Whether the init guards changed.** In rc3, `src/init.cpp:1079` refuses mainnet and
   `src/init.cpp:1097` requires `blake2b_headline` on every chain. Both shape what the
   package must set.
@@ -122,5 +142,6 @@ needs no sync:
 
 ```bash
 # with connect=0 and blake2b_headline set, at genesis
-bitcoin-cli -testnet4 getdeploymentinfo   # expect "hardfork": { "height": 150027 }
+bitcoin-cli -testnet4 getdeploymentinfo   # expect "blake2b": { "height": 150027 }
+                                          # (the key was "hardfork" before rc3)
 ```
