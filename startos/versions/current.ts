@@ -1,61 +1,38 @@
 import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
+import { readFile } from 'fs/promises'
+import { storeJson } from '../fileModels/store.json'
+
+/**
+ * The store as the migration sees it, which is the host path rather than the
+ * `sdk.volumes.main` handle the file model uses. Sibling packages address the
+ * same volume this way from a migration (`knots-prerdts` clears index files
+ * under it), so the layout is not being guessed at here.
+ */
+const storePath = '/media/startos/volumes/main/store.json'
 
 const notes =
-  'Follows the public BLAKE2b chain on mainnet. The proof of work changed there at block ' +
-  '961640 on 30 August 2026, and this release is rebuilt from the first Bitcoin Knots ' +
-  'candidate that will run on mainnet at all, v29.4.1.knots20260508rc4. Earlier releases ' +
-  'refused mainnet outright, so this is the first version of this package that can follow it. ' +
-  'Select it with the Select Chain action. The height it activates at, and the value that ' +
-  'block committed to, are both fixed in the software; you do not set them. It finds peers on ' +
-  'its own, so no peer list is needed. ' +
-  'The public test network has been removed, and this is the part to read twice. The same ' +
-  'candidate moved where BLAKE2b begins on testnet4, from block 150027 to 150308, but the ' +
-  'live test network activated at 150027 and is already past 150308. Those are two different ' +
-  'chains, so this build cannot follow the test network as it stands: it would sync to one ' +
-  'block below the switch and stop, looking exactly like a node with no peers. ' +
-  'If your node was on the public test network it will be set to the private chain when this ' +
-  'installs, because that is the safe default rather than starting a mainnet download you did ' +
-  'not ask for. Nothing is deleted: the test network data stays where it is, and it becomes ' +
-  'reachable again when that network restarts on the newer candidate. Private chains are ' +
-  'unaffected.' +
+  'A new install now follows the public BLAKE2b chain on mainnet. It used to ' +
+  'start on a private chain of its own, which meant the common case, following ' +
+  'the chain this package exists for, took an extra step, and the uncommon case ' +
+  'was the one you got for free. Select Chain still offers the private chain, ' +
+  'and the form now opens on mainnet. ' +
   ' ' +
-  'A new install is now pruned by default, keeping 5 GiB of blocks. It used to ' +
-  'default to a mode that reports itself as pruned but never actually discards ' +
-  'anything, which is harmless on a private chain and on mainnet is the ' +
-  'difference between a few gigabytes and the whole chain. Existing installs ' +
-  'keep whatever they are set to; nothing is changed underneath you. ' +
-  'A new Select Storage action chooses between keeping only recent blocks and ' +
-  'keeping the whole chain, and sets how much disk the blocks may use. It sits ' +
-  'with Select Chain and Set Peers under Configuration, and the wallet actions ' +
-  'are grouped separately.' +
+  'An install that already exists is not moved. If you never picked a chain, ' +
+  'this update pins you to the private chain you were actually running rather ' +
+  'than letting the new default carry you onto mainnet and start a sync of the ' +
+  'whole chain you did not ask for. If you did pick one, including mainnet, ' +
+  'nothing changes. Either way no data is deleted: each chain keeps its own, so ' +
+  'switching returns you to where you left off. ' +
   ' ' +
-  'Stopping the service no longer throws away sync progress. The node was being ' +
-  'shut down and then killed a few milliseconds later, before it could write its ' +
-  'chain state to disk, so a restart during a long sync resumed from the last ' +
-  'time that state was written, which early in a sync is the very beginning. ' +
-  'Measured before the fix: stopping at block 84,900 came back at block 327. It ' +
-  'now shuts down cleanly and resumes where it left off.' +
+  'A new install is still pruned by default, keeping 5 GiB of blocks, so ' +
+  'following mainnet costs gigabytes rather than the whole chain. Select ' +
+  'Storage changes that. ' +
   ' ' +
-  'Fixes the "The RPC proxy is not ready" health check on mainnet. The helper ' +
-  'that serves blocks a pruned node has discarded was being pointed at the ' +
-  'wrong file for its credentials, because mainnet keeps them in a different ' +
-  'place from the test chains, so it could not talk to the node and never came ' +
-  'up. Pruned mainnet nodes were affected; nothing else was.' +
-  ' ' +
-  'On deployments without a settings form, such as Umbrel and plain Docker, ' +
-  'whether the node prunes can now be set from the same page that chooses the ' +
-  'chain. It could set the chain but not this, which left pruning fixed at ' +
-  'whatever the deployment shipped with, on exactly the platforms where that is ' +
-  'hardest to change. On StartOS the Select Storage action already covered it ' +
-  'and nothing changes. ' +
-  ' ' +
-  'The service is now called "Bitcoin Knots (BLAKE2b) Companion". "Companion" marks it ' +
-  'as ours rather than an official package, and keeping "Bitcoin Knots" at the front ' +
-  'keeps it next to the upstream node in the service list. Only the display name ' +
-  'changed.'
+  'Select Chain also described mainnet as a test network, which it is not. ' +
+  'Wording only; the action behaved correctly.'
 
 export const current = VersionInfo.of({
-  version: '1.0.0:25',
+  version: '1.0.0:26',
   releaseNotes: {
     en_US: notes,
     es_ES: notes,
@@ -64,10 +41,45 @@ export const current = VersionInfo.of({
     fr_FR: notes,
   },
   migrations: {
-    // Nothing to migrate. The repin changes the binary, and chain selection adds
-    // store fields that all carry defaults, so an existing install reads as
-    // `regtest` and keeps the chain it already has under /data/regtest.
-    up: async ({ effects }) => {},
+    // Pin the chain an existing install is already running.
+    //
+    // `defaultChain` moved from regtest to mainnet in this version. The store
+    // only gains a `chain` key when someone runs Select Chain, so an install
+    // that never ran it has no key at all and reads whatever the default is.
+    // Left alone, such a node would come back from this upgrade pointed at
+    // mainnet: a chain it never chose and a ~960k block sync nobody asked for.
+    // Its regtest data would still be on disk, which makes it recoverable, not
+    // harmless.
+    //
+    // The key has to be read raw. `storeJson.read()` returns the zod-parsed
+    // object, and `chain` carries `.catch(defaultChain)`, so a missing key comes
+    // back already filled in with the new default and absence is invisible
+    // through the model. The file itself is the only place the difference
+    // survives.
+    //
+    // Anyone who did run Select Chain has `chain` written, including those who
+    // chose mainnet deliberately, and is untouched either way.
+    up: async ({ effects }) => {
+      const raw = await readFile(storePath, 'utf8').catch(() => null)
+      if (raw === null) return
+
+      let parsed: unknown
+      try {
+        parsed = JSON.parse(raw)
+      } catch {
+        // An unreadable store is not this migration's to repair; the file model
+        // rebuilds it from defaults on the next read.
+        return
+      }
+
+      if (
+        parsed !== null &&
+        typeof parsed === 'object' &&
+        !('chain' in parsed)
+      ) {
+        await storeJson.merge(effects, { chain: 'regtest' })
+      }
+    },
     down: IMPOSSIBLE,
   },
 })

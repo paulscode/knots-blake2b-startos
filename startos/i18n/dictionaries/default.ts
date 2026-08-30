@@ -32,7 +32,7 @@ const dict = {
   'Stalled just below the BLAKE2b activation height. This node has no peers on the fork: testnet4’s DNS seeds return ordinary testnet4 nodes, which cannot serve the blocks after it. Add fork peers with the Set Peers action.': 28,
   'Before the BLAKE2b activation': 29,
   'Select Chain': 30,
-  'Choose whether this node runs its own private chain or joins the public BLAKE2b test network.': 31,
+  'Choose whether this node follows the public BLAKE2b chain or runs a private chain of its own.': 31,
   'The node restarts and begins following the chain you pick. Nothing is deleted: each chain keeps its own data, so switching back returns you to where you left off. On the public test network you must also add peers, because its DNS seeds return nodes that are not on the fork.': 32,
   'A private chain is yours alone: you pick the activation height and mine every block yourself. Mainnet is the public BLAKE2b chain, where the proof of work changed at block 961640 on 30 August 2026. That height and the value the chain committed to at it are both fixed in the software rather than configurable.': 33,
   'Private chain (regtest)': 34,

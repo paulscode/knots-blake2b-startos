@@ -35,7 +35,10 @@ settings_get() {
     sed -n "s/.*\"$1\"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p" "$SETTINGS" | head -1
 }
 
-CHAIN="${CHAIN:-regtest}"
+# mainnet by default: the BLAKE2b chain is live there and following it is what
+# this image is for. A settings file still outranks this, so an install that has
+# already chosen a chain through the page keeps it across an image update.
+CHAIN="${CHAIN:-mainnet}"
 _chain_from_file="$(settings_get chain || true)"
 if [ -n "${_chain_from_file:-}" ]; then
     CHAIN="$_chain_from_file"

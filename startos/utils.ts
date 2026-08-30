@@ -131,12 +131,22 @@ export const minPruneMib = 550
  * network restarts on rc4; the constants to restore are in git history and the
  * procedure is in UPDATING.md.
  *
- * `defaultChain` stays regtest. Mining mainnet should be something the operator
- * chose, not something they got by installing.
+ * `defaultChain` is mainnet. This package exists to follow the BLAKE2b chain,
+ * that chain is live on mainnet, and a node that follows it is what someone
+ * installing this almost always wants; regtest is one action away for anyone
+ * who wants a private chain instead. A fresh install is also pruned by default
+ * (see `defaultPruneMib`), so the mainnet sync costs gigabytes rather than the
+ * whole chain.
+ *
+ * This default reaches new installs only. The store gains a `chain` key just
+ * when someone runs Select Chain, so an existing install that never ran it has
+ * no key and would otherwise read the new default and walk off its own chain on
+ * upgrade. The migration in `versions/current.ts` pins those to regtest, which
+ * is what they were actually running.
  */
 export const chains = ['regtest', 'mainnet'] as const
 export type Chain = (typeof chains)[number]
-export const defaultChain: Chain = 'regtest'
+export const defaultChain: Chain = 'mainnet'
 
 /**
  * The height at which BLAKE2b activates on mainnet, compiled into `CMainParams`.

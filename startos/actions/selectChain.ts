@@ -23,13 +23,14 @@ export const inputSpec = InputSpec.of({
  * Choose between a private chain and the public BLAKE2b mainnet.
  *
  * Deliberately *not* destructive, which is worth stating because chain switches
- * usually are. bitcoind keeps each chain under its own subdirectory of the
- * volume (`/data/regtest`, `/data/testnet4`), so switching away leaves the old
- * chain where it was and switching back finds it again. What does change is what
- * every other action reports, since they all follow this setting.
+ * usually are. bitcoind keeps a named chain under its own subdirectory of the
+ * volume (`/data/regtest`) and mainnet at the root, so switching away leaves the
+ * old chain where it was and switching back finds it again. What does change is
+ * what every other action reports, since they all follow this setting.
  *
- * Mainnet is not offered and could not be: the release candidate this package
- * builds refuses `ChainType::MAIN` at startup.
+ * The form opens on mainnet, because that is `defaultChain` and it is what a
+ * fresh install runs. Picking it is therefore the no-op, and regtest is the
+ * deliberate choice, which is the reverse of how this package began.
  */
 export const selectChain = sdk.Action.withInput(
   'select-chain',
@@ -37,7 +38,7 @@ export const selectChain = sdk.Action.withInput(
   async () => ({
     name: i18n('Select Chain'),
     description: i18n(
-      'Choose whether this node runs its own private chain or joins the public BLAKE2b test network.',
+      'Choose whether this node follows the public BLAKE2b chain or runs a private chain of its own.',
     ),
     warning: i18n(
       'The node restarts and begins following the chain you pick. Nothing is deleted: each chain keeps its own data, so switching back returns you to where you left off.',
