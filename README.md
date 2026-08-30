@@ -35,6 +35,18 @@ not.
 Maintained by Paul Lamb (<https://github.com/paulscode>). Not affiliated with Start9
 or Bitcoin Knots.
 
+## Install
+
+Add this registry to StartOS and install from it:
+
+```
+https://start9.paulscode.com
+```
+
+That is the quickest route, and it is the one to use unless you have a reason to
+build. Installing from the registry gets the signed release; building from source
+gets whatever is in the working tree, which is not the same thing.
+
 ## How this differs from the official `bitcoind` package
 
 | | official `bitcoind` | this package |
