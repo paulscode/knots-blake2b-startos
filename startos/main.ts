@@ -21,7 +21,7 @@ import {
 } from './utils'
 
 export const main = sdk.setupMain(async ({ effects }) => {
-  console.info(i18n('Starting Bitcoin Knots (BLAKE2b) Companion'))
+  console.info(i18n('Starting Knots (BLAKE2b) Companion'))
 
   // Tolerate an absent store rather than refusing to start: every field has a
   // default, so there is nothing here that a missing file makes unsafe.
