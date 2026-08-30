@@ -14,6 +14,7 @@ import {
   rpcBindPruned,
   rpcPort,
   rpcPortPruned,
+  defaultPruneMib,
   mainnetActivationHeight,
   type Chain,
 } from './utils'
@@ -37,7 +38,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
   // testnet4 nodes. That list is in git history if that chain comes back.
   const addnodes = [...(store?.addnodes ?? [])]
 
-  const pruning = (store?.prune ?? 1) !== 0
+  const pruning = (store?.prune ?? defaultPruneMib) !== 0
 
   const env = {
     CHAIN: chain,
@@ -53,7 +54,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
     BLAKE2B_ACTIVATION_HEIGHT: String(
       store?.activationHeight ?? defaultActivationHeight,
     ),
-    PRUNE: String(store?.prune ?? 1),
+    PRUNE: String(store?.prune ?? defaultPruneMib),
     FASTPRUNE: (store?.fastprune ?? true) ? '1' : '0',
     // Pruning puts btc-rpc-proxy on 18443, the port dependents resolve, and
     // moves bitcoind behind it on loopback. Unpruned there is nothing to fetch,

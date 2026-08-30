@@ -76,6 +76,36 @@ export const defaultHeadline = 'BLAKE2b lab 2026-08-21'
 // since no Sia ASIC can produce them.
 export const defaultActivationHeight = 1
 
+/**
+ * Blocks to keep, in MiB, when nobody has chosen otherwise.
+ *
+ * A fresh install is pruned. That is the point of this package: it exists so a
+ * second chain can sit beside a first one without a second copy of the chain,
+ * and a default that quietly kept everything would defeat that on the only
+ * chain where it matters.
+ *
+ * The previous default was `1`, which is bitcoind's *manual* pruning mode: the
+ * node reports `pruned: true`, never discards anything, and grows without
+ * bound, with no way to reclaim space from this package. On regtest that is
+ * invisible. On mainnet it is the difference between five gigabytes and the
+ * whole chain.
+ *
+ * 5 GiB is a deliberate floor rather than a recommendation. It is comfortably
+ * above bitcoind's minimum, and it is small enough that "pruned" means what a
+ * reader expects. Raising it costs disk and buys two things: fewer blocks for a
+ * dependent indexer to re-fetch, and longer before v2 blocks fall below the
+ * prune height, which is when a proxy that cannot decode them stops being
+ * enough. Both are in the Select Storage action's reach.
+ */
+export const defaultPruneMib = 5000
+
+/**
+ * bitcoind's own floor for a prune target. Below this it refuses to start
+ * rather than rounding up, so the action rejects it rather than letting a form
+ * produce a node that will not run.
+ */
+export const minPruneMib = 550
+
 // ---------------------------------------------------------------------------
 // Chain selection
 // ---------------------------------------------------------------------------

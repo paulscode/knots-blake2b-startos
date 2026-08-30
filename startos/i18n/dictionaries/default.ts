@@ -49,6 +49,17 @@ const dict = {
   'RPC Proxy': 45,
   'Serving RPC, and fetching pruned blocks': 46,
   'The RPC proxy is not ready': 47,
+  'Storage': 48,
+  'Whether to keep the whole chain on disk, or keep only recent blocks and discard the rest.': 49,
+  'The node restarts to apply this. Going from keeping everything to keeping recent blocks deletes the older ones, and getting them back means downloading the chain again. Going the other way also means downloading the chain again, because the blocks that were discarded are gone.': 50,
+  'Keep recent blocks only (pruned)': 51,
+  'Blocks to keep': 52,
+  'How much disk to allow for blocks, in MiB. Older blocks are discarded automatically once this is exceeded. This does not cover the rest of the node’s data, which grows on its own.': 53,
+  'Keep the whole chain (archival)': 54,
+  'Select Storage': 55,
+  'Choose whether this node keeps the whole chain or only recent blocks.': 56,
+  'Configuration': 57,
+  'Wallet': 58,
 } as const
 
 /**

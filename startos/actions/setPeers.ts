@@ -19,19 +19,20 @@ export const inputSpec = InputSpec.of({
 /**
  * Peers to dial, on top of whatever the chain's seeds provide.
  *
- * This exists because of a specific property of the BLAKE2b testnet4: the fork
- * shares testnet4's magic bytes, default port and genesis block, so its DNS
- * seeds (`seed.testnet4.bitcoin.sprovoost.nl`, `seed.testnet4.wiz.biz`) hand
- * back ordinary testnet4 nodes that are not on the fork. Those peers are useful
- * up to height 150027, since both chains share that history, and useless after
- * it. Without at least one peer that is actually on the fork, the node syncs to
- * 150026 and stops there looking perfectly healthy, which is what the Chain
- * health check is for.
+ * Rarely needed now, and worth saying why it still exists.
  *
- * A free-text list rather than a curated default, because a hardcoded peer list
- * is both a maintenance burden and a centralisation point. When there are
- * addresses stable enough to commit to, they belong in `testnet4Seeds` in
- * utils.ts and are merged with whatever is set here.
+ * On mainnet the node finds the fork by itself: bitcoind queries every DNS seed
+ * as `x<SeedsServiceFlags()>.<seed>`, which on this build is x10000009, being
+ * NODE_NETWORK | NODE_WITNESS | NODE_BLAKE2B, and two of mainnet's seeds answer
+ * that prefix with fork nodes. So this is a fallback for when those seeds are
+ * down or filtering badly, not a requirement.
+ *
+ * It was a requirement on the BLAKE2b testnet4, whose DNS seeds returned
+ * ordinary testnet4 nodes: without at least one peer actually on the fork, a
+ * node synced to one block below activation and stopped there looking perfectly
+ * healthy. That chain is not offered by this build, but the failure mode is the
+ * same wherever seeds cannot distinguish the chains, which is why the Chain
+ * health check tells "stalled below activation" apart from "no peers".
  *
  * No validation beyond trimming: bitcoind's `addnode` accepts hostnames, IPv4,
  * bracketed IPv6 and onion addresses, with or without a port, and rejecting
@@ -50,7 +51,7 @@ export const setPeers = sdk.Action.withInput(
       'The node restarts to apply the change. A peer that is not on the BLAKE2b chain will not break anything, it simply cannot serve blocks after the activation height.',
     ),
     allowedStatuses: 'any',
-    group: null,
+    group: i18n('Configuration'),
     visibility: 'enabled',
   }),
 

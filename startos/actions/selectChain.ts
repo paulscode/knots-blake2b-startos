@@ -43,7 +43,7 @@ export const selectChain = sdk.Action.withInput(
       'The node restarts and begins following the chain you pick. Nothing is deleted: each chain keeps its own data, so switching back returns you to where you left off.',
     ),
     allowedStatuses: 'any',
-    group: null,
+    group: i18n('Configuration'),
     visibility: 'enabled',
   }),
 

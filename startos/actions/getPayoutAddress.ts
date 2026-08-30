@@ -25,7 +25,7 @@ export const getPayoutAddress = sdk.Action.withoutInput(
     warning: null,
     // bitcoin-cli needs the daemon up.
     allowedStatuses: 'only-running',
-    group: null,
+    group: i18n('Wallet'),
     visibility: 'enabled',
     access: 'user',
   }),

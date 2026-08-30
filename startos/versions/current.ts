@@ -1,20 +1,36 @@
 import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
 
 const notes =
-  'Follows the current public BLAKE2b test network. The test network was restarted on a ' +
-  'later Bitcoin Knots release candidate, which moved where BLAKE2b begins from block ' +
-  '149537 to block 150027 and changed the headline that block commits to. Those two values ' +
-  'are consensus, so the previous release cannot follow the chain that is live now: it ' +
-  'expects the fork at a height where the live chain still has an ordinary block, and stops ' +
-  'there. This release is rebuilt from that candidate, v29.4.1.knots20260508rc3, and knows ' +
-  'both new values. ' +
-  'If you were on the public network, your node has been stuck below the fork and will ' +
-  'resume on its own once this release starts. Nothing is deleted and no action is needed. ' +
-  'Private chains are unaffected: you choose the activation height and headline there, and ' +
-  'neither is touched by this.'
+  'Follows the public BLAKE2b chain on mainnet. The proof of work changed there at block ' +
+  '961640 on 30 August 2026, and this release is rebuilt from the first Bitcoin Knots ' +
+  'candidate that will run on mainnet at all, v29.4.1.knots20260508rc4. Earlier releases ' +
+  'refused mainnet outright, so this is the first version of this package that can follow it. ' +
+  'Select it with the Select Chain action. The height it activates at, and the value that ' +
+  'block committed to, are both fixed in the software; you do not set them. It finds peers on ' +
+  'its own, so no peer list is needed. ' +
+  'The public test network has been removed, and this is the part to read twice. The same ' +
+  'candidate moved where BLAKE2b begins on testnet4, from block 150027 to 150308, but the ' +
+  'live test network activated at 150027 and is already past 150308. Those are two different ' +
+  'chains, so this build cannot follow the test network as it stands: it would sync to one ' +
+  'block below the switch and stop, looking exactly like a node with no peers. ' +
+  'If your node was on the public test network it will be set to the private chain when this ' +
+  'installs, because that is the safe default rather than starting a mainnet download you did ' +
+  'not ask for. Nothing is deleted: the test network data stays where it is, and it becomes ' +
+  'reachable again when that network restarts on the newer candidate. Private chains are ' +
+  'unaffected.' +
+  ' ' +
+  'A new install is now pruned by default, keeping 5 GiB of blocks. It used to ' +
+  'default to a mode that reports itself as pruned but never actually discards ' +
+  'anything, which is harmless on a private chain and on mainnet is the ' +
+  'difference between a few gigabytes and the whole chain. Existing installs ' +
+  'keep whatever they are set to; nothing is changed underneath you. ' +
+  'A new Select Storage action chooses between keeping only recent blocks and ' +
+  'keeping the whole chain, and sets how much disk the blocks may use. It sits ' +
+  'with Select Chain and Set Peers under Configuration, and the wallet actions ' +
+  'are grouped separately.'
 
 export const current = VersionInfo.of({
-  version: '1.0.0:18',
+  version: '1.0.0:20',
   releaseNotes: {
     en_US: notes,
     es_ES: notes,
