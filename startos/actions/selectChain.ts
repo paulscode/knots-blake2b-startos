@@ -9,18 +9,18 @@ export const inputSpec = InputSpec.of({
   chain: Value.select({
     name: i18n('Chain'),
     description: i18n(
-      'A private chain is yours alone: you pick the activation height and mine every block yourself. The public test network is shared with other testers, and BLAKE2b activates there at height 150027, which is fixed in the software rather than configurable.',
+      'A private chain is yours alone: you pick the activation height and mine every block yourself. Mainnet is the public BLAKE2b chain, where the proof of work changed at block 961640 on 30 August 2026. That height and the value the chain committed to at it are both fixed in the software rather than configurable.',
     ),
     values: {
       regtest: i18n('Private chain (regtest)'),
-      testnet4: i18n('Public BLAKE2b test network (testnet4)'),
+      mainnet: i18n('Public BLAKE2b chain (mainnet)'),
     },
     default: defaultChain,
   }),
 })
 
 /**
- * Choose between a private chain and the public BLAKE2b testnet4.
+ * Choose between a private chain and the public BLAKE2b mainnet.
  *
  * Deliberately *not* destructive, which is worth stating because chain switches
  * usually are. bitcoind keeps each chain under its own subdirectory of the

@@ -14,8 +14,7 @@ import {
   rpcBindPruned,
   rpcPort,
   rpcPortPruned,
-  testnet4ActivationHeight,
-  testnet4Seeds,
+  mainnetActivationHeight,
   type Chain,
 } from './utils'
 
@@ -27,14 +26,16 @@ export const main = sdk.setupMain(async ({ effects }) => {
   const store = await storeJson.read().const(effects)
   const chain: Chain = store?.chain ?? defaultChain
 
-  // On testnet4 the DNS seeds return ordinary testnet4 nodes, which is not
-  // useful for finding the fork, so whatever the operator supplies is added to
-  // the curated list. On regtest there is nothing to discover at all and the
-  // list is normally empty.
-  const addnodes = [
-    ...(chain === 'testnet4' ? testnet4Seeds : []),
-    ...(store?.addnodes ?? []),
-  ]
+  // No curated list on either chain now. On mainnet the node finds fork peers
+  // itself: bitcoind queries every DNS seed as `x<SeedsServiceFlags()>`, which
+  // on this build is x10000009, being NODE_NETWORK | NODE_WITNESS |
+  // NODE_BLAKE2B, and two of mainnet's seeds answer that prefix with fork
+  // nodes. On regtest there is nothing to discover. So this is whatever the
+  // operator supplied, and normally empty.
+  //
+  // testnet4 did need a curated list, because its DNS seeds return ordinary
+  // testnet4 nodes. That list is in git history if that chain comes back.
+  const addnodes = [...(store?.addnodes ?? [])]
 
   const pruning = (store?.prune ?? 1) !== 0
 
@@ -185,10 +186,10 @@ export const main = sdk.setupMain(async ({ effects }) => {
 
             // A repin to a different tag could move this. It is consensus, so
             // it should be loud rather than inferred from a stall later.
-            if (chain === 'testnet4' && activation !== testnet4ActivationHeight) {
+            if (chain === 'mainnet' && activation !== mainnetActivationHeight) {
               return {
                 result: 'failure' as const,
-                message: `${i18n('This build activates BLAKE2b at a different height than expected on testnet4')}: ${activation} != ${testnet4ActivationHeight}`,
+                message: `${i18n('This build activates BLAKE2b at a different height than expected on mainnet')}: ${activation} != ${mainnetActivationHeight}`,
               }
             }
 
@@ -228,7 +229,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
             // Only reported after several consecutive observations, because a
             // healthy node passes through this state briefly on its way across
             // the fork.
-            if (chain === 'testnet4' && blocks === activation - 1) {
+            if (chain === 'mainnet' && blocks === activation - 1) {
               stalledFor = stalledAt === blocks ? stalledFor + 1 : 0
               stalledAt = blocks
               if (stalledFor >= STALL_OBSERVATIONS) {

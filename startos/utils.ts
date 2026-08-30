@@ -87,84 +87,113 @@ export const defaultActivationHeight = 1
  * whatever you set. `testnet4` is the public BLAKE2b test network, where the
  * activation height is 150027 and is compiled into the binary, not configurable.
  *
- * Mainnet is deliberately absent, and not only by our choice: the release
- * candidate this package builds refuses `ChainType::MAIN` outright
- * (`init.cpp:1079`, "This release candidate only supports test networks").
+ * Mainnet is here as of the rc4 pin, and testnet4 is not, which is the reverse
+ * of how this package began.
+ *
+ * BLAKE2b activated on mainnet at height 961640 on 2026-08-30, and rc4 is the
+ * first release that will run there: rc2 and rc3 refused `ChainType::MAIN`
+ * outright.
+ *
+ * testnet4 is gone because rc4 compiles its activation at 150308 while the live
+ * testnet4 chain activated at 150027 and has passed 150308 already. Those are
+ * different chains, so this build cannot follow that network, and offering it
+ * would only produce a node that stalls at 150026. It comes back when that
+ * network restarts on rc4; the constants to restore are in git history and the
+ * procedure is in UPDATING.md.
+ *
+ * `defaultChain` stays regtest. Mining mainnet should be something the operator
+ * chose, not something they got by installing.
  */
-export const chains = ['regtest', 'testnet4'] as const
+export const chains = ['regtest', 'mainnet'] as const
 export type Chain = (typeof chains)[number]
 export const defaultChain: Chain = 'regtest'
 
 /**
- * The height at which BLAKE2b activates on testnet4, compiled into
- * `CTestNet4Params`. Not settable: `-testactivationheight` is read only by
- * `CRegTestParams`, so on testnet4 it is accepted and silently ignored
- * (verified: `getdeploymentinfo` still reports 150027 with it set).
+ * The height at which BLAKE2b activates on mainnet, compiled into `CMainParams`.
+ * Not settable: `-testactivationheight` is read only by `CRegTestParams`.
+ *
+ * The two mainnet chains part earlier than this, at 961632, where BIP110
+ * activated. 961640 is where the proof of work changes.
  */
-export const testnet4ActivationHeight = 150027
+export const mainnetActivationHeight = 961640
 
 /**
- * The headline that testnet4's BLAKE2b chain actually committed to.
+ * The headline mainnet's BLAKE2b chain committed to.
  *
- * This is consensus, not preference, and it is not ours to choose.
- * `validation.cpp:4565` checks, at the activation height only, that the
- * configured headline appears as a substring of the coinbase `scriptSig`.
- * testnet4's block 150027 carries `Catbus` (coinbase
- * 411408322b54d1239fb307c39fc066fdd27f2b3503a8b14bd5354fa9451e7a7d,
- * scriptSig `030b4a0206436174627573...`: a 3-byte BIP34 height push of 150027
- * then a 6-byte push of the headline), so any other value makes the node
- * reject that block and every block after it.
+ * Consensus, not preference. `validation.cpp` checks at the activation height
+ * that this string appears somewhere in that block's coinbase `scriptSig`.
+ * Block 961640's carries `SilentWave` and then this, taken from the New York
+ * Post's Sunday print edition as a proof of time. Confirmed against
+ * `btc-blake2b.org/faq`, which names the same string.
  *
- * Both the height and the headline are re-cut with every release candidate, so
- * neither survives a repin. See UPDATING.md.
+ * Because the check is a substring search, any string genuinely present in that
+ * coinbase satisfies it, so this is safe by construction rather than by luck.
  *
- * Getting this wrong is a nasty failure: the node syncs happily to 150026 and
- * stops, logging `bad-headline` but otherwise looking exactly like a node that
- * simply has no peers on the fork. It cost an afternoon to find, which is why the
- * package now sets it rather than offering it, and why the `chain` health check
- * tells the two causes apart.
+ * Getting it wrong is a nasty failure: the node syncs happily to 961639 and
+ * stops, logging `bad-headline` but otherwise looking exactly like a node with
+ * no peers on the fork. That is why the package sets it rather than offering
+ * it, and why the `chain` health check tells the two causes apart.
  */
-export const testnet4Headline = 'Catbus'
+export const mainnetHeadline = '8-30 NYPost Deride And Conquer'
 
 /** The headline a chain requires. Only regtest leaves the choice open. */
 export function headlineFor(chain: Chain, configured: string): string {
-  return chain === 'testnet4' ? testnet4Headline : configured
-}
-
-/** The `bitcoin-cli` / `bitcoind` flag selecting a chain. */
-export function chainFlag(chain: Chain): string {
-  return `-${chain}`
+  return chain === 'mainnet' ? mainnetHeadline : configured
 }
 
 /**
- * Peers to dial on testnet4, in addition to whatever the user adds.
+ * The subdirectory of the data directory holding a chain's files, cookie
+ * included. Empty for mainnet, which lives at the root.
  *
- * These exist because testnet4's DNS seeds cannot find this chain. The fork
- * shares testnet4's genesis block, magic bytes and default port, so the seeds
- * return ordinary testnet4 nodes: they serve valid blocks up to 150026 and have
- * nothing after it. Measured 2026-08-24: all 33 addresses the two seeds returned
- * were on the SHA256d chain. Without a starting point a new node stalls one block
- * below the fork looking healthy, so shipping some is the difference between the
- * package working and not.
- *
- * Every address below was verified, not collected: each was asked for the headers
- * following block 150026 and answered with a 164-byte header v2, and each
- * reported the same tip height as `mempool.guide/testnet4` at the time. See
- * `spikes/blake2b-testnet4/` in the pruned-electrs repo for the tool that found
- * them, which is the thing to re-run rather than trusting this list.
- *
- * **This list will rot.** These are other people's home nodes, not
- * infrastructure. It is short on purpose: long enough to bootstrap, short enough
- * that maintaining it is not a burden, and the user's own `addnodes` is merged
- * with it for everything else.
+ * Dependents read the node's cookie out of a read-only mount, so getting this
+ * wrong means no RPC credentials rather than a clear error.
  */
-export const testnet4Seeds: string[] = [
-  '82.67.102.15:48333',
-  '178.118.234.189:48333',
-  '64.177.11.149:48333',
-  '86.8.92.221:48333',
-  '136.36.150.88:48333',
-  '172.117.233.59:48333',
-  '184.179.145.52:48333',
-  '207.81.196.105:48333',
-]
+export function chainDataSubdir(chain: Chain): string {
+  return chain === 'mainnet' ? '' : chain
+}
+
+/**
+ * The chain a generated `bitcoin.conf` selects.
+ *
+ * Every chain but mainnet is chosen with a `<chain>=1` line. Mainnet has no
+ * such option, because it is bitcoind's default, so *absence* is the signal.
+ * A dependent that looks only for a positive marker silently concludes regtest
+ * on a mainnet node and then cannot find the cookie.
+ */
+export function chainFromConf(conf: string | null | undefined): Chain {
+  const lines = (conf ?? '').split('\n').map((l) => l.trim())
+  const named = chains.find(
+    (c) => c !== 'mainnet' && lines.some((l) => l === `${c}=1`),
+  )
+  return named ?? 'mainnet'
+}
+
+/**
+ * The `bitcoin-cli` / `bitcoind` flag selecting a chain.
+ *
+ * Mainnet is the odd one out and cannot be written `-mainnet`: there is no such
+ * option, because mainnet is the default. `-chain=main` is the spelling that
+ * works, and naming it explicitly beats relying on the absence of a flag.
+ */
+export function chainFlag(chain: Chain): string {
+  return chain === 'mainnet' ? '-chain=main' : `-${chain}`
+}
+
+/**
+ * No seed list is shipped for mainnet, and that is deliberate rather than an
+ * omission.
+ *
+ * bitcoind queries every DNS seed as `x<SeedsServiceFlags()>.<seed>`
+ * (`net.cpp`), which on this build is x10000009: NODE_NETWORK | NODE_WITNESS |
+ * NODE_BLAKE2B. Two of mainnet's seeds advertise hardfork seeding and answer
+ * that prefix with fork nodes. Measured 2026-08-30: all ten addresses they
+ * returned were on the BLAKE2b chain, and a node started with no peers
+ * configured found the chain by itself.
+ *
+ * Do not substitute gossip. Both chains share magic bytes and port 8333, so one
+ * round of getaddr returned 7349 candidates of which a 60-peer sample had none
+ * on the fork. The service-bit filter is the only thing that separates them.
+ *
+ * testnet4 did ship a curated list, because its DNS seeds return ordinary
+ * testnet4 nodes. It is in git history if that chain returns.
+ */
