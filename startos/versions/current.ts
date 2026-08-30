@@ -34,10 +34,16 @@ const notes =
   'chain state to disk, so a restart during a long sync resumed from the last ' +
   'time that state was written, which early in a sync is the very beginning. ' +
   'Measured before the fix: stopping at block 84,900 came back at block 327. It ' +
-  'now shuts down cleanly and resumes where it left off.'
+  'now shuts down cleanly and resumes where it left off.' +
+  ' ' +
+  'Fixes the "The RPC proxy is not ready" health check on mainnet. The helper ' +
+  'that serves blocks a pruned node has discarded was being pointed at the ' +
+  'wrong file for its credentials, because mainnet keeps them in a different ' +
+  'place from the test chains, so it could not talk to the node and never came ' +
+  'up. Pruned mainnet nodes were affected; nothing else was.'
 
 export const current = VersionInfo.of({
-  version: '1.0.0:21',
+  version: '1.0.0:22',
   releaseNotes: {
     en_US: notes,
     es_ES: notes,

@@ -14,6 +14,7 @@ import {
   rpcBindPruned,
   rpcPort,
   rpcPortPruned,
+  chainDataSubdir,
   defaultPruneMib,
   mainnetActivationHeight,
   type Chain,
@@ -279,9 +280,17 @@ export const main = sdk.setupMain(async ({ effects }) => {
           'proxy-sub',
         )
 
-        // bitcoind keeps a non-mainnet chain's cookie in a subdirectory named
-        // for that chain, and this package runs only such chains.
-        const cookie = `${dataDir}/${chain}/.cookie`
+        // bitcoind keeps a non-mainnet chain's cookie in a subdirectory named for
+        // that chain, and mainnet's at the root of the data directory. This used to
+        // assume the subdirectory always existed, which was true while the package
+        // offered only regtest and testnet4, and became a silent failure the day it
+        // offered mainnet: the proxy got a path with no file at it, could not
+        // authenticate to bitcoind, and the health check said "The RPC proxy is not
+        // ready" without saying why.
+        const chainSubdir = chainDataSubdir(chain)
+        const cookie = chainSubdir
+          ? `${dataDir}/${chainSubdir}/.cookie`
+          : `${dataDir}/.cookie`
 
         // Written by hand rather than through a TOML library: every value here
         // is a number or a path this file computed, none of it is user input,
