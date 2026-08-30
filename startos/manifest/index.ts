@@ -9,7 +9,7 @@ export const manifest = setupManifest({
   // That decision paid off: the package now runs testnet4 as well as regtest,
   // and the title could follow while the id could not have.
   id: 'knots-blake2b',
-  title: 'Bitcoin Knots BLAKE2b',
+  title: 'Bitcoin Knots (BLAKE2b) Companion',
   license: 'MIT',
   packageRepo: 'https://github.com/paulscode/knots-blake2b-startos',
   upstreamRepo: 'https://github.com/bitcoinknots/bitcoin',
