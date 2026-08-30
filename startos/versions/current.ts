@@ -43,7 +43,7 @@ const notes =
   'up. Pruned mainnet nodes were affected; nothing else was.'
 
 export const current = VersionInfo.of({
-  version: '1.0.0:23',
+  version: '1.0.0:24',
   releaseNotes: {
     en_US: notes,
     es_ES: notes,

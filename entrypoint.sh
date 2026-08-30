@@ -28,7 +28,11 @@ fi
 SETTINGS="${SETTINGS_FILE:-/config/settings.json}"
 settings_get() {
     [ -s "$SETTINGS" ] || return 1
-    sed -n "s/.*\"$1\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p" "$SETTINGS" | head -1
+    # Two patterns because JSON has two shapes here and the page writes both: a
+    # quoted string for `chain`, a bare number for `prune`. Matching only the
+    # quoted form meant a numeric setting read as empty and was silently ignored.
+    sed -n "s/.*\"$1\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p" "$SETTINGS" | head -1 | grep . && return 0
+    sed -n "s/.*\"$1\"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p" "$SETTINGS" | head -1
 }
 
 CHAIN="${CHAIN:-regtest}"
@@ -39,6 +43,16 @@ if [ -n "${_chain_from_file:-}" ]; then
 fi
 
 PRUNE="${PRUNE:-0}"
+# Same precedence as the chain: a mounted settings file outranks the environment,
+# because on Umbrel and plain Docker that file is the only interface a user has.
+# 0 keeps the whole chain; anything else is a budget in MiB that bitcoind enforces
+# itself. 1 is bitcoind's manual mode and is not offered anywhere: it reports the
+# node as pruned while never discarding anything, so it grows without bound.
+_prune_from_file="$(settings_get prune || true)"
+if [ -n "${_prune_from_file:-}" ]; then
+    PRUNE="$_prune_from_file"
+    echo "knots-blake2b: prune from $SETTINGS"
+fi
 ACTIVATION_HEIGHT="${BLAKE2B_ACTIVATION_HEIGHT:-}"
 # Space-separated host:port entries to dial in addition to the chain's own seeds.
 ADDNODES="${ADDNODES:-}"
