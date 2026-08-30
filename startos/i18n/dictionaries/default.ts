@@ -1,7 +1,7 @@
 export const DEFAULT_LANG = 'en_US'
 
 const dict = {
-  'Starting Knots (BLAKE2b) Companion': 0,
+  'Starting Bitcoin Knots (BLAKE2b) Companion': 0,
   RPC: 1,
   'Bitcoin JSON-RPC. Used by the BLAKE2b gateway.': 2,
   Peer: 3,

@@ -28,7 +28,11 @@ const shape = z.object({
   // where the activation height is compiled into the binary at 150027, so the
   // entrypoint does not write it there rather than writing config that looks
   // effective and is not.
-  activationHeight: z.number().int().nonnegative().catch(defaultActivationHeight),
+  activationHeight: z
+    .number()
+    .int()
+    .nonnegative()
+    .catch(defaultActivationHeight),
 
   // Peers to dial, one `host:port` per entry, added to whatever the chain's own
   // seeds provide. On testnet4 this is how a node finds the BLAKE2b chain at

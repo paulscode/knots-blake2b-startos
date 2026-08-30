@@ -40,10 +40,22 @@ const notes =
   'that serves blocks a pruned node has discarded was being pointed at the ' +
   'wrong file for its credentials, because mainnet keeps them in a different ' +
   'place from the test chains, so it could not talk to the node and never came ' +
-  'up. Pruned mainnet nodes were affected; nothing else was.'
+  'up. Pruned mainnet nodes were affected; nothing else was.' +
+  ' ' +
+  'On deployments without a settings form, such as Umbrel and plain Docker, ' +
+  'whether the node prunes can now be set from the same page that chooses the ' +
+  'chain. It could set the chain but not this, which left pruning fixed at ' +
+  'whatever the deployment shipped with, on exactly the platforms where that is ' +
+  'hardest to change. On StartOS the Select Storage action already covered it ' +
+  'and nothing changes. ' +
+  ' ' +
+  'The service is now called "Bitcoin Knots (BLAKE2b) Companion". "Companion" marks it ' +
+  'as ours rather than an official package, and keeping "Bitcoin Knots" at the front ' +
+  'keeps it next to the upstream node in the service list. Only the display name ' +
+  'changed.'
 
 export const current = VersionInfo.of({
-  version: '1.0.0:24',
+  version: '1.0.0:25',
   releaseNotes: {
     en_US: notes,
     es_ES: notes,
