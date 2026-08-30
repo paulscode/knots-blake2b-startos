@@ -2,7 +2,7 @@
 #
 # Pinned by commit, never by branch: a floating build would silently cross
 # consensus revisions (PLAN section 8). The commit below is the tag
-# v29.4.1.knots20260508rc3, recorded as a SHA because a release candidate's tag
+# v29.4.1.knots20260508rc4, recorded as a SHA because a release candidate's tag
 # can be moved and a SHA cannot.
 #
 # Why this tag rather than luke-jr's development branch: the testnet4 BLAKE2b
@@ -11,11 +11,21 @@
 # tree, because there the height comes from -testactivationheight=blake2b@N, but
 # testnet4 needs this one.
 #
-# This image cannot serve a mainnet node, and that is upstream's choice, not
-# ours: init.cpp:1079 refuses ChainType::MAIN outright ("This release candidate
-# only supports test networks") unless -allow_mainnet_test_only is passed.
-# Verified by running it. So the mainnet Knots forks stay on signed releases and
-# this package stays on test networks; the two are not interchangeable.
+# This image can serve a mainnet node as of rc4, which is a change from every
+# earlier pin. rc2 and rc3 refused ChainType::MAIN outright at init.cpp ("This
+# release candidate only supports test networks"); rc4 removes that guard and
+# has no -allow_mainnet_test_only, because BLAKE2b activated on mainnet at
+# height 961640 on 2026-08-30 and this is the release that follows it.
+#
+# What it cannot serve, as of this pin, is the public test network. rc4 compiles
+# testnet4's activation at 150308, and the live testnet4 chain activated at
+# 150027 and has passed 150308 already, so the two are different chains.
+# entrypoint.sh refuses testnet4 rather than letting it stall at 150026, which
+# is what that mismatch looks like from the outside.
+
+# Why the activation height and the headline are not build arguments: both are
+# compiled into chainparams and checked by consensus, and both are re-cut by
+# upstream at every release candidate. See UPDATING.md.
 #
 # Note also init.cpp:1097: blake2b_headline is mandatory on *every* chain, not
 # just where BLAKE2b is scheduled. entrypoint.sh already requires it.
@@ -28,7 +38,7 @@
 FROM debian:bookworm-slim AS build
 
 ARG KNOTS_REPO=https://github.com/bitcoinknots/bitcoin.git
-ARG KNOTS_REF=afbe91c299e16519f03902939fdbda8af9bd527d
+ARG KNOTS_REF=dc82be77dd741dfa63e1f816367b15364d55b051
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential cmake pkgconf python3 git ca-certificates \
