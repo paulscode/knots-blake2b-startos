@@ -27,10 +27,17 @@ const notes =
   'A new Select Storage action chooses between keeping only recent blocks and ' +
   'keeping the whole chain, and sets how much disk the blocks may use. It sits ' +
   'with Select Chain and Set Peers under Configuration, and the wallet actions ' +
-  'are grouped separately.'
+  'are grouped separately.' +
+  ' ' +
+  'Stopping the service no longer throws away sync progress. The node was being ' +
+  'shut down and then killed a few milliseconds later, before it could write its ' +
+  'chain state to disk, so a restart during a long sync resumed from the last ' +
+  'time that state was written, which early in a sync is the very beginning. ' +
+  'Measured before the fix: stopping at block 84,900 came back at block 327. It ' +
+  'now shuts down cleanly and resumes where it left off.'
 
 export const current = VersionInfo.of({
-  version: '1.0.0:20',
+  version: '1.0.0:21',
   releaseNotes: {
     en_US: notes,
     es_ES: notes,

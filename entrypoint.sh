@@ -222,5 +222,29 @@ trap 'kill -TERM "$APP_PID" 2>/dev/null || true' TERM INT
 # Exits when the service does, whether that is a crash, a stop, or the watcher
 # above deciding the settings changed. Either way the restart policy decides what
 # happens next.
-wait "$APP_PID"
+#
+# The loop is the point, and one `wait` is not enough. A trapped signal makes
+# `wait` return immediately with a status above 128, *without* reaping the child:
+# the trap above has only asked the service to stop, and it is still running. If
+# the script ended there, PID 1 would exit while the service was still shutting
+# down, and the container would take it with it. For bitcoind that means the
+# chainstate is never flushed, so a stop during a long sync throws the sync away
+# and it starts over from the last flush, which during an initial sync is
+# nothing. Measured: stopping at height 84900 mid-IBD came back at height 327.
+#
+# So wait again until the child is genuinely gone, and exit with its status
+# rather than the signal's.
+# `|| rc=$?` rather than a bare `wait`, and that is the whole fix. `set -e` is on
+# (line 6), and an interrupted `wait` returns 128+signum, so a bare `wait` ends
+# the script the instant the signal arrives, before anything can read its status.
+# That is what used to happen: the trap asked the service to stop, `set -e` then
+# killed PID 1 five milliseconds later, and the container took the service down
+# mid-shutdown. A command on the left of `||` is exempt from `set -e`.
+rc=0
+wait "$APP_PID" || rc=$?
+while [ "$rc" -gt 128 ] && kill -0 "$APP_PID" 2>/dev/null; do
+    rc=0
+    wait "$APP_PID" || rc=$?
+done
+exit "$rc"
 
