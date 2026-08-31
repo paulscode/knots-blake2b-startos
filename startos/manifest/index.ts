@@ -38,9 +38,18 @@ export const manifest = setupManifest({
     // on; see main.ts. Without it a pruned node of this flavor has nothing to
     // answer for its dropped blocks, which is what kept pruning and header v2
     // from composing.
+    // Our build of v0.8.0, carrying PR #33. Stock v0.8.0 cannot parse a 164-byte
+    // BLAKE2b header, and it parses the block for any request it intercepts, not
+    // only one it had to fetch from peers. So every verbose `getblock` and every
+    // intercepted `getrawtransaction` above block 961640 returned "IO error:
+    // failed to fill whole buffer", on blocks this node still had. Everything
+    // resolving 18443 sees that: Mempool Pruned's whole block path, and Electrs
+    // Pruned's verbose transaction lookups. Verbosity 0 was unaffected, which is
+    // why indexing worked and this looked like it only mattered later.
+    // Swap back to ghcr.io/start9labs/btc-rpc-proxy once #33 is merged upstream.
     proxy: {
       source: {
-        dockerTag: 'ghcr.io/start9labs/btc-rpc-proxy:v0.8.0',
+        dockerTag: 'paulscode/btc-rpc-proxy:v0.8.0-blake2b.1',
       },
       arch: ['x86_64', 'aarch64'],
     },
