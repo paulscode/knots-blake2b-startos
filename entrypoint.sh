@@ -45,6 +45,21 @@ if [ -n "${_chain_from_file:-}" ]; then
     echo "knots-blake2b: chain from $SETTINGS"
 fi
 
+# Normalise the `main` alias HERE, before anything reads the chain, and not in
+# the validating case below where it used to happen.
+#
+# Everything chain-specific in this file matches on the exact string `mainnet`,
+# including the block that forces the consensus headline. `main` reached that
+# block as an unrecognised chain, skipped it, and was only rewritten afterwards,
+# so a node asked for `main` got mainnet with whatever headline it was handed.
+# On a build where the headline is still consensus that rejects block 961640 and
+# every block after it, which looks like a peer problem rather than a
+# misconfiguration. The chain is settable from the mounted settings file, so this
+# was reachable without touching compose.
+if [ "$CHAIN" = "main" ]; then
+    CHAIN=mainnet
+fi
+
 PRUNE="${PRUNE:-0}"
 # Same precedence as the chain: a mounted settings file outranks the environment,
 # because on Umbrel and plain Docker that file is the only interface a user has.
@@ -57,6 +72,23 @@ if [ -n "${_prune_from_file:-}" ]; then
     echo "knots-blake2b: prune from $SETTINGS"
 fi
 ACTIVATION_HEIGHT="${BLAKE2B_ACTIVATION_HEIGHT:-}"
+# On regtest the height and the headline have to be set together, so supply one
+# when the caller did not. StartOS always sends 1 and the Umbrel compose sets it
+# explicitly; this is for a plain `docker run` that sets neither.
+#
+# An empty height on regtest was never a configuration worth honouring. Regtest
+# takes its activation height only from `-testactivationheight`, and leaves
+# BLAKE2b unactivated otherwise, so the node would follow SHA256d forever, which
+# is the one thing this image is not for. Upstream is also making the two a pair:
+# a coming build reads the headline as a regtest-only option and throws
+# `-blake2b_headline requires -testactivationheight=blake2b@<height>` when it is
+# set without one, so a regtest node with only the headline would stop starting
+# the moment this image is rebuilt on it. 1 means the first block mined is
+# already BLAKE2b, which is what the packages ask for.
+if [ "$CHAIN" = "regtest" ] && [ -z "$ACTIVATION_HEIGHT" ]; then
+    ACTIVATION_HEIGHT=1
+    echo "knots-blake2b: regtest with no activation height; using ${ACTIVATION_HEIGHT}"
+fi
 # Space-separated host:port entries to dial in addition to the chain's own seeds.
 ADDNODES="${ADDNODES:-}"
 
@@ -101,8 +133,6 @@ fi
 
 case "$CHAIN" in
     regtest|mainnet) ;;
-    main)
-        CHAIN=mainnet ;;
     testnet4)
         # rc4 compiles testnet4's activation at 150308. The live testnet4 chain
         # forked at 150027 and is well past 150308 already, so this build expects
@@ -181,7 +211,11 @@ fi
     # else, so on testnet4 bitcoind accepts it, logs it, and ignores it: the
     # height stays the compiled-in 150027. Writing it there would be config that
     # looks effective and is not, so it is not written.
-    if [ "$CHAIN" = "regtest" ] && [ -n "$ACTIVATION_HEIGHT" ]; then
+    #
+    # Unconditional on regtest now, rather than only when a height was supplied:
+    # the height is defaulted above precisely so the headline never travels
+    # without it. See the comment there.
+    if [ "$CHAIN" = "regtest" ]; then
         echo "testactivationheight=blake2b@${ACTIVATION_HEIGHT}"
     fi
     for node in $ADDNODES; do

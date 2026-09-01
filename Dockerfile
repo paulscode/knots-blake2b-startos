@@ -30,6 +30,16 @@
 # Note also init.cpp:1097: blake2b_headline is mandatory on *every* chain, not
 # just where BLAKE2b is scheduled. entrypoint.sh already requires it.
 #
+# That is true of this pin and stops being true at the next one. Upstream commit
+# 5f91c0bb0f, on branch pow_hf_blake2b_params and in no tag as of 2026-09-01,
+# hardcodes mainnet's headline into chainparams and demotes the option to a
+# regtest-only one, dropping the mandatory-everywhere InitError with it. Nothing
+# here has to change for that: the option stays registered on every chain, so
+# passing it where it is now ignored is not an error, and the string this image
+# forces on mainnet is byte-identical to the one that commit hardcodes. What DID
+# have to change is regtest, where that commit makes the headline throw unless
+# -testactivationheight=blake2b@<height> is set with it; see entrypoint.sh.
+#
 # There is no signed release for this tag. bitcoinknots.org publishes nothing
 # past 29.4.knots20260508, and the RC tags have no GitHub release, so there are
 # no artifacts and no detached signature. Building from source here trades the
