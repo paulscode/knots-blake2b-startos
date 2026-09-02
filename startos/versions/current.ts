@@ -1,29 +1,34 @@
 import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
 
 const notes =
-  'Fixes a way to end up on mainnet without the headline mainnet requires. The ' +
-  'chain can be written as either `mainnet` or `main`, and only the first spelling ' +
-  'reached the step that supplies the consensus headline for that chain. A node ' +
-  'started as `main` therefore ran on mainnet with whatever headline it had been ' +
-  'given, and since the headline is checked at the fork height, it would reject ' +
-  'block 961640 and every block after it. That looks like a peer problem rather ' +
-  'than a misconfiguration: the node sits one block below the fork, fully ' +
-  'connected, and never moves. ' +
+  'Moves to the final Bitcoin Knots 29.4.1 release. Every version of this package ' +
+  'so far has been built from a release candidate, because there was no release to ' +
+  'build from. There is now.' +
   ' ' +
-  'The spelling is now settled before anything reads it, so both forms behave the ' +
-  'same. Nobody who set the chain from the Settings page or left it at the default ' +
-  'was affected, because both of those produce `mainnet`. ' +
+  'The consensus rules do not change. The activation height stays 961640, the ' +
+  'difficulty shift at that height stays the same, and the opt-in signature hash ' +
+  'that gives replay protection is the one already shipped. A node running the ' +
+  'previous version is on the same chain as one running this, and updating is not ' +
+  'urgent for correctness. ' +
   ' ' +
-  'On the private test chain the activation height is now always written alongside ' +
-  'the headline, rather than only when one was supplied. Without a height that ' +
-  'chain never actually activates BLAKE2b, which is the one thing this package is ' +
-  'for, and a coming upstream release refuses to start when the two are separated. ' +
-  'It defaults to 1, which is what both the Settings page and the Umbrel package ' +
-  'already send. Mainnet is unaffected: its height is compiled in and was never ' +
-  'settable here.'
+  'What it does bring is better peer selection. The node now prefers peers that ' +
+  'advertise the fork for its first outbound connections, and paces its use of DNS ' +
+  'seeds by how many such peers it already has. Finding peers on this chain has been ' +
+  'the awkward part of running it: both chains share a port and a message prefix, so ' +
+  'a node that dials ordinary peers stalls one block below the fork while looking ' +
+  'perfectly healthy. This release addresses that in the node itself rather than ' +
+  'leaving it to a list of addresses shipped by a package. ' +
+  ' ' +
+  'It also carries a checkpoint at the first BLAKE2b block, and sets its assumed-valid ' +
+  'block and minimum chain work from this chain rather than the one it parted from, ' +
+  'which makes a fresh sync faster and harder to mislead. ' +
+  ' ' +
+  'The public test network is still refused, for the same reason as before: this ' +
+  'release schedules BLAKE2b on testnet4 at a height that network passed without ' +
+  'forking, so the two are different chains. Use the private test chain or mainnet.'
 
 export const current = VersionInfo.of({
-  version: '1.0.0:28',
+  version: '1.0.0:29',
   releaseNotes: {
     en_US: notes,
     es_ES: notes,
@@ -32,12 +37,9 @@ export const current = VersionInfo.of({
     fr_FR: notes,
   },
   migrations: {
-    // Nothing to migrate. This version only changes how the generated bitcoin.conf
-    // is built at startup; no setting, stored value or on-disk layout changes.
-    //
-    // A node that had been running as `main` with a wrong headline needs no
-    // migration either: it was stalled below the fork rather than holding bad data,
-    // so it resumes from where it stopped once the headline is right.
+    // Nothing to migrate. The consensus rules are unchanged, so the existing chain
+    // data stays valid and no reindex is needed; the node picks up the new peer
+    // selection and checkpoint on next start.
     //
     // The `chain` pin that :26 needed lives in `v1_0_0_26.ts`, with the version
     // that introduced it, rather than being carried forward here.

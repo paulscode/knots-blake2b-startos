@@ -79,12 +79,12 @@ ACTIVATION_HEIGHT="${BLAKE2B_ACTIVATION_HEIGHT:-}"
 # An empty height on regtest was never a configuration worth honouring. Regtest
 # takes its activation height only from `-testactivationheight`, and leaves
 # BLAKE2b unactivated otherwise, so the node would follow SHA256d forever, which
-# is the one thing this image is not for. Upstream is also making the two a pair:
-# a coming build reads the headline as a regtest-only option and throws
+# is the one thing this image is not for. Upstream also makes the two a pair as of
+# this pin: the headline is a regtest-only option and throws
 # `-blake2b_headline requires -testactivationheight=blake2b@<height>` when it is
-# set without one, so a regtest node with only the headline would stop starting
-# the moment this image is rebuilt on it. 1 means the first block mined is
-# already BLAKE2b, which is what the packages ask for.
+# set without one, so a regtest node carrying only the headline does not start at
+# all. 1 means the first block mined is already BLAKE2b, which is what the
+# packages ask for.
 if [ "$CHAIN" = "regtest" ] && [ -z "$ACTIVATION_HEIGHT" ]; then
     ACTIVATION_HEIGHT=1
     echo "knots-blake2b: regtest with no activation height; using ${ACTIVATION_HEIGHT}"
@@ -109,9 +109,12 @@ if [ "$CHAIN" = "testnet4" ]; then
     ADDNODES="$TESTNET4_SEEDS ${ADDNODES}"
 fi
 
-# Mainnet is consensus in the same way, and for the same reason: block 961640's
-# coinbase carries this string, and validation.cpp checks it there. Get it wrong
-# and the node rejects 961640 and everything after.
+# Mainnet no longer reads this. As of this pin the headline for mainnet is compiled
+# into chainparams and the option is regtest-only, so the value below cannot be got
+# wrong in a way the node would notice. It is still forced to the correct string
+# rather than dropped, so that the line written into bitcoin.conf agrees with the
+# compiled-in one instead of contradicting it, and so that a pin moving backwards
+# to a build where this was consensus does not silently start following nothing.
 #
 # No peer list here, unlike testnet4, and that is not an oversight. net.cpp:2418
 # queries every DNS seed as `x<SeedsServiceFlags()>.<seed>`, which on this build
@@ -134,18 +137,22 @@ fi
 case "$CHAIN" in
     regtest|mainnet) ;;
     testnet4)
-        # rc4 compiles testnet4's activation at 150308. The live testnet4 chain
-        # forked at 150027 and is well past 150308 already, so this build expects
-        # an ordinary block where that chain has a BLAKE2b one and will stop at
-        # 150026. Refusing is better than syncing to a halt and looking like a
-        # peer problem, which is exactly what that failure looks like.
+        # This release compiles testnet4's activation at 150308. The live testnet4
+        # chain forked at 150027 and is well past 150308 already, so this build
+        # expects an ordinary block where that chain has a BLAKE2b one and will
+        # stop at 150026. Refusing is better than syncing to a halt and looking
+        # like a peer problem, which is exactly what that failure looks like.
+        #
+        # The height has been re-cut more than once, so this is worth rechecking
+        # whenever the pin moves: a testnet4 that restarted on 150308 would make
+        # this refusal wrong rather than cautious.
         echo "FATAL: this build cannot follow the public test network as it stands." >&2
-        echo "       It is built from v29.4.1.knots20260508rc4, which activates" >&2
+        echo "       It is built from v29.4.1.knots20260508, which activates" >&2
         echo "       BLAKE2b on testnet4 at height 150308. The live testnet4 chain" >&2
         echo "       activated at 150027 and has passed 150308, so this build" >&2
         echo "       rejects it and would stall at 150026." >&2
         echo "       Use the private test chain, or mainnet, until that network" >&2
-        echo "       restarts on rc4." >&2
+        echo "       restarts on 150308." >&2
         exit 1 ;;
     *)
         echo "FATAL: unsupported CHAIN='$CHAIN'. Use regtest or mainnet." >&2
