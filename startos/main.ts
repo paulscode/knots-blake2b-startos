@@ -210,7 +210,22 @@ export const main = sdk.setupMain(async ({ effects }) => {
     })
 
   const withBitcoind = await base
-    .addDaemon('bitcoind', {
+    // ID IS `node`, NOT `bitcoind`, AND IT IS A PUBLISHED CONTRACT.
+    //
+    // The official package calls this daemon `bitcoind` and the port took that
+    // name with it, which broke three dependents at once. `datum-blake2b`
+    // declares `healthChecks: ['node']`, and `electrs-pruned` and
+    // `mempool-pruned` both declare `['node', 'chain']`. StartOS treats a
+    // required health check id that does not exist exactly like one that is
+    // failing, so all three showed a failed dependency against a node that was
+    // perfectly healthy.
+    //
+    // Renaming the daemon back is one line here against a coordinated release of
+    // three packages in three repos, and it is the same call already made for the
+    // RPC and peer ports: what dependents resolve is this package's contract, and
+    // matching upstream's spelling is not worth breaking it. The *image* id stays
+    // `bitcoind`, matching upstream, because nothing outside this package sees it.
+    .addDaemon('node', {
       subcontainer: bitcoindSub,
       exec: {
         command: ['bitcoind', ...bitcoinArgs],
@@ -259,7 +274,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
      * is exactly enough to tell that state from an ordinary sync.
      */
     .addHealthCheck('chain', {
-      requires: ['bitcoind'],
+      requires: ['node'],
       ready: {
         display: i18n('Chain'),
         trigger: sdk.trigger.statusTrigger(30_000, {
@@ -407,7 +422,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
           }
         },
       },
-      requires: ['bitcoind'],
+      requires: ['node'],
     })
     .addOneshot('synced-true', {
       subcontainer: null,
@@ -672,7 +687,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
             errorMessage: i18n('The Bitcoin RPC Proxy is not ready'),
           }),
       },
-      requires: ['bitcoind' as const],
+      requires: ['node' as const],
     }
   })
 })
