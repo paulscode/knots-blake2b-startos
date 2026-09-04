@@ -1,51 +1,66 @@
-import { i18n } from './i18n'
+import { bitcoinConfFile } from './fileModels/bitcoin.conf'
+import { i2pdConfFile } from './fileModels/i2pd.conf'
 import { sdk } from './sdk'
 import {
+  i2pConsoleHostId,
+  i2pUiPort,
+  peerHostId,
+  peerInterfaceId,
   peerLocalHostId,
-  peerPort,
+  peerPortExternal,
+  peerPortInternal,
   peerPortLocal,
   rpcHostId,
+  rpcInterfaceId,
   rpcPort,
+  zmqBlockInterfaceId,
+  zmqHostId,
+  zmqTxInterfaceId,
+  zmqPortBlock,
+  zmqPortTransaction,
 } from './utils'
+import { i18n } from './i18n'
 
 export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
-  // RPC. Carries credentials, so it is masked. The gateway reaches this through
-  // the dependency mechanism rather than over the LAN.
+  let bitcoinConf = await bitcoinConfFile.read().const(effects)
+
+  if (!bitcoinConf) return []
+
+  // RPC
   const rpcMulti = sdk.MultiHost.of(effects, rpcHostId)
-  const rpcOrigin = await rpcMulti.bindPort(rpcPort, {
+  const rpcMultiOrigin = await rpcMulti.bindPort(rpcPort, {
     protocol: 'http',
     preferredExternalPort: rpcPort,
   })
   const rpc = sdk.createInterface(effects, {
     name: i18n('RPC'),
-    id: 'rpc',
-    description: i18n('Bitcoin JSON-RPC. Used by the BLAKE2b gateway.'),
+    id: rpcInterfaceId,
+    description: i18n('Listens for JSON-RPC commands'),
     type: 'api',
-    masked: true,
+    masked: false,
     schemeOverride: null,
     username: null,
     path: '',
     query: {},
   })
+  const rpcReceipt = await rpcMultiOrigin.export([rpc])
 
-  // P2P. Inbound peers on the BLAKE2b chain, and the route by which this node is
-  // reachable from outside the server at all. Outbound peer discovery does not
-  // need it: the DNS seeds answer this build's NODE_BLAKE2B service prefix with
-  // fork nodes.
-  const peerMulti = sdk.MultiHost.of(effects, 'peer')
-  const peerOrigin = await peerMulti.bindPort(peerPort, {
+  const receipts = [rpcReceipt]
+
+  // Peer
+  const peerMulti = sdk.MultiHost.of(effects, peerHostId)
+  const peerMultiOrigin = await peerMulti.bindPort(peerPortInternal, {
     protocol: null,
+    preferredExternalPort: peerPortExternal,
     addSsl: null,
-    preferredExternalPort: peerPort,
-    // Plaintext by design: Bitcoin's p2p protocol has no TLS. `secure: null`
-    // would make this bridge-only and unreachable from another machine, which
-    // for a peer port means no inbound peers at all.
     secure: { ssl: false },
   })
   const peer = sdk.createInterface(effects, {
     name: i18n('Peer'),
-    id: 'peer',
-    description: i18n('P2P for connecting to other BLAKE2b nodes.'),
+    id: peerInterfaceId,
+    description: i18n(
+      'Listens for incoming connections from peers on the bitcoin network',
+    ),
     type: 'p2p',
     masked: false,
     schemeOverride: { ssl: null, noSsl: null },
@@ -53,12 +68,16 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
     path: '',
     query: {},
   })
+  const peerReceipt = await peerMultiOrigin.export([peer])
 
-  // Whitelisted p2p for services on the bridge, e.g. an Electrum server that
-  // pulls historical blocks. Deliberately not exported: an unexported binding
-  // stays off the LAN, so the noban permissions are reachable only from the
-  // bridge and a public peer keeps arriving on `peer`'s plain listener. See
-  // peerLocalHostId in utils.ts for why a dependent needs this at all.
+  receipts.push(peerReceipt)
+
+  // Whitelisted p2p for services on the bridge. bitcoind whitebinds this port,
+  // so a peer arriving on it gets noban + download + mempool — which a
+  // dependent that pulls historical blocks needs to avoid inbound eviction and
+  // the upload-target cutoff. No exported interface: an unexported binding
+  // stays off the LAN and lands only on lo/lxcbr0, so a public peer can't reach
+  // the permissions and keeps arriving on `peer`'s plain `bind`.
   await sdk.MultiHost.of(effects, peerLocalHostId).bindPort(peerPortLocal, {
     protocol: null,
     preferredExternalPort: peerPortLocal,
@@ -66,5 +85,81 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
     secure: { ssl: false },
   })
 
-  return [await rpcOrigin.export([rpc]), await peerOrigin.export([peer])]
+  // ZMQ (conditional). Block (28332) and transaction (28333) are exposed as
+  // separate interfaces so a dependent (e.g. LND) can resolve each one's bridge
+  // address independently — bitcoind publishes the two on distinct ports.
+  if (bitcoinConf.zmqEnabled) {
+    const zmqMulti = sdk.MultiHost.of(effects, zmqHostId)
+
+    const zmqBlockOrigin = await zmqMulti.bindPort(zmqPortBlock, {
+      preferredExternalPort: zmqPortBlock,
+      addSsl: null,
+      secure: { ssl: false },
+      protocol: null,
+    })
+    const zmqBlock = sdk.createInterface(effects, {
+      name: i18n('ZeroMQ Block'),
+      id: zmqBlockInterfaceId,
+      description: i18n(
+        'Streams real-time Bitcoin block notifications (hashes and raw data)',
+      ),
+      type: 'api',
+      masked: false,
+      schemeOverride: null,
+      username: null,
+      path: '',
+      query: {},
+    })
+    receipts.push(await zmqBlockOrigin.export([zmqBlock]))
+
+    const zmqTxOrigin = await zmqMulti.bindPort(zmqPortTransaction, {
+      preferredExternalPort: zmqPortTransaction,
+      addSsl: null,
+      secure: { ssl: false },
+      protocol: null,
+    })
+    const zmqTx = sdk.createInterface(effects, {
+      name: i18n('ZeroMQ Transaction'),
+      id: zmqTxInterfaceId,
+      description: i18n(
+        'Streams real-time Bitcoin transaction notifications (hashes, raw data, and sequence)',
+      ),
+      type: 'api',
+      masked: false,
+      schemeOverride: null,
+      username: null,
+      path: '',
+      query: {},
+    })
+    receipts.push(await zmqTxOrigin.export([zmqTx]))
+  }
+
+  // I2P (conditional)
+  const i2pConsoleEnabled = await i2pdConfFile
+    .read((c) => c.http.enabled)
+    .const(effects)
+
+  if (bitcoinConf.raw?.i2psam && i2pConsoleEnabled) {
+    const i2pMulti = sdk.MultiHost.of(effects, i2pConsoleHostId)
+    const i2pConsoleOrigin = await i2pMulti.bindPort(i2pUiPort, {
+      protocol: 'http',
+    })
+
+    const i2pConsole = sdk.createInterface(effects, {
+      name: i18n('I2P Daemon Console'),
+      id: 'i2p-console',
+      description: i18n('Interface to access the embedded I2P daemon console'),
+      type: 'ui',
+      masked: false,
+      schemeOverride: null,
+      username: null,
+      path: '',
+      query: {},
+    })
+
+    const i2pConsoleReceipt = await i2pConsoleOrigin.export([i2pConsole])
+    receipts.push(i2pConsoleReceipt)
+  }
+
+  return receipts
 })

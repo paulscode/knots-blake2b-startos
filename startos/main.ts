@@ -1,318 +1,663 @@
-import { writeFile } from 'fs/promises'
-
+import { TOML } from '@start9labs/start-sdk'
+import { access, rm, writeFile } from 'fs/promises'
+import { request } from 'node:https'
+import { socksHostId, socksPort } from 'tor-startos/startos/utils'
+import { bitcoinConfFile } from './fileModels/bitcoin.conf'
+import { i2pdConfFile } from './fileModels/i2pd.conf'
 import { storeJson } from './fileModels/store.json'
 import { i18n } from './i18n'
 import { sdk } from './sdk'
 import {
-  chainFlag,
-  dataDir,
-  rpcAllowIpPruned,
-  rpcBindPruned,
+  bitcoinCliArgs,
+  bitcoinMounts,
+  GetBlockchainInfo,
+  i2pControlPort,
+  mainnetActivationHeight,
+  rootDir,
+  rpccookiefile,
   rpcPort,
   rpcPortPruned,
-  defaultPruneMib,
-  mainnetActivationHeight,
 } from './utils'
 
+// JSON-RPC helper for i2pd's I2PControl API (uses self-signed cert)
+const i2pControlRpc = (method: string, params: Record<string, unknown>) =>
+  new Promise<any>((resolve, reject) => {
+    const body = JSON.stringify({ jsonrpc: '2.0', id: 1, method, params })
+    const req = request(
+      {
+        hostname: '127.0.0.1',
+        port: i2pControlPort,
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Content-Length': Buffer.byteLength(body),
+        },
+        rejectUnauthorized: false,
+      },
+      (res) => {
+        let data = ''
+        res.on('data', (chunk: string) => (data += chunk))
+        res.on('end', () => {
+          try {
+            resolve(JSON.parse(data))
+          } catch {
+            reject(new Error('Invalid JSON'))
+          }
+        })
+      },
+    )
+    req.on('error', reject)
+    req.write(body)
+    req.end()
+  })
+
 export const main = sdk.setupMain(async ({ effects }) => {
-  console.info(i18n('Starting Bitcoin Knots (BLAKE2b) Companion'))
+  /**
+   * ======================== Setup ========================
+   */
+  console.log('Starting Bitcoin!')
 
-  // Tolerate an absent store rather than refusing to start: every field has a
-  // default, so there is nothing here that a missing file makes unsafe.
-  const store = await storeJson.read().const(effects)
-
-  // No curated list, and that is deliberate. bitcoind queries every DNS seed as
-  // `x<SeedsServiceFlags()>`, which on this build is x10000009, being
-  // NODE_NETWORK | NODE_WITNESS | NODE_BLAKE2B, and two of mainnet's seeds
-  // answer that prefix with fork nodes. So this is whatever the operator
-  // supplied, and normally empty.
-  const addnodes = [...(store?.addnodes ?? [])]
-
-  const pruning = (store?.prune ?? defaultPruneMib) !== 0
-
-  const env = {
-    PRUNE: String(store?.prune ?? defaultPruneMib),
-    // Pruning puts btc-rpc-proxy on 18443, the port dependents resolve, and
-    // moves bitcoind behind it on loopback. Unpruned there is nothing to fetch,
-    // so bitcoind keeps 18443 and no proxy runs.
-    RPC_PORT: String(pruning ? rpcPortPruned : rpcPort),
-    RPC_BIND: pruning ? rpcBindPruned : '0.0.0.0',
-    ADDNODES: addnodes.join(' '),
-    // No RPC_USER/RPC_PASSWORD: bitcoind writes a .cookie into the datadir and
-    // the gateway reads it through a read-only mount of this volume. Nothing
-    // here has to generate or store an RPC secret.
-    //
-    // The bridge is the only route to this port; it is never published to the
-    // LAN. `rpcallowip` is wide because the bridge address is not knowable here.
-    RPC_ALLOW_IP: pruning ? rpcAllowIpPruned : '0.0.0.0/0',
+  // get store.json but don't watch for changes
+  const store = await storeJson.read().once()
+  if (!store) {
+    throw new Error('No store')
+  }
+  // get bitcoin.conf and watch for changes
+  const bitcoinConf = await bitcoinConfFile.read().const(effects)
+  if (!bitcoinConf) {
+    throw new Error('No bitcoin.conf')
   }
 
-  const subcontainer = sdk.SubContainer.of(
-    effects,
-    { imageId: 'knots' },
-    sdk.Mounts.of().mountVolume({
-      volumeId: 'main',
-      subpath: null,
-      mountpoint: dataDir,
-      readonly: false,
-    }),
-    'knots-node',
-  )
+  // get i2pd.conf and watch for changes
+  const i2pdConf = await i2pdConfFile.read().const(effects)
 
-  const cli = ['bitcoin-cli', `-datadir=${dataDir}`, chainFlag]
+  const { reindexBlockchain, reindexChainstate } = store
 
-  // Health-check state, held across polls by the closure below. A node crossing
-  // the fork sits at activation-1 for a few seconds legitimately, so the stall
-  // is only reported once it has been seen this many times running.
+  // Tor SOCKS over the bridge. The bridge address only changes when tor's
+  // binding does — with the 9050 fallback it stays constant across tor
+  // install/update/uninstall, so this .const() never restarts Bitcoin unless
+  // tor lands on a different port (then one healing restart). A dead bridge
+  // address is just connection-refused, so -onion is always safe to pass.
+  const torSocks = await sdk.host
+    .getBridgeAddress(effects, {
+      packageId: 'tor',
+      hostId: socksHostId,
+      internalPort: socksPort,
+      fallbackPort: socksPort,
+    })
+    .const()
+
+  // track Tor install/run state dynamically for the health check (no restart)
+  let torInstalled = false
+  let torRunning = false
+  sdk.getStatus(effects, { packageId: 'tor' }).onChange((status) => {
+    torInstalled = status !== null
+    torRunning = status?.desired.main === 'running'
+    return { cancel: false }
+  })
+
+  // Health-check state for the `chain` check below, held across polls by the
+  // closure. A node crossing the fork sits at activation-1 for a few seconds
+  // legitimately, so the stall is only reported once it has been seen this many
+  // times running.
   const STALL_OBSERVATIONS = 3
   let stalledAt: number | null = null
   let stalledFor = 0
 
-  return (
-    sdk.Daemons.of(effects)
-      // StartOS mounts volumes root-owned on every start and the image runs as
-      // the unprivileged `bitcoin` user, so without this the node cannot write
-      // its own bitcoin.conf. Found the hard way: the package built, packed and
-      // installed clean, then crash-looped on `/data/bitcoin.conf: Permission
-      // denied`. A oneshot rather than a migration because it is a fact about
-      // the volume re-asked every start, not about our version.
-      .addOneshot('chown', {
-        subcontainer,
-        exec: {
-          command: ['chown', '-R', 'bitcoin:bitcoin', dataDir],
-          user: 'root',
-        },
-        requires: [],
-      })
-      .addDaemon('node', {
-        subcontainer,
-        exec: { command: ['/usr/local/bin/entrypoint.sh'], env },
-        ready: {
-          display: i18n('RPC'),
-          fn: () =>
-            sdk.healthCheck.checkPortListening(
-              effects,
-              pruning ? rpcPortPruned : rpcPort,
-              {
-                successMessage: i18n('The node is accepting RPC'),
-                errorMessage: i18n('The node is not accepting RPC yet'),
-              },
-            ),
-        },
-        requires: ['chown'],
-      })
-      /**
-       * Which chain is this node actually on?
-       *
-       * The question the UI could not otherwise answer, and the reason this
-       * check exists rather than a plain sync-progress bar. The two mainnet
-       * chains share magic bytes, port 8333 and every block up to 961631, so a
-       * BLAKE2b node and an ordinary one connect to each other happily and
-       * exchange headers. They disagree only from 961640, where this node
-       * rejects the other chain's 80-byte SHA256d headers.
-       *
-       * So the failure this catches is not silently following the wrong chain:
-       * it is sitting one block below the fork, fully connected, looking
-       * synced, forever. `getdeploymentinfo` reports a `blake2b` object
-       * (`hardfork` before rc3) carrying the activation height and whether the
-       * tip has crossed it, which is exactly enough to say which situation this
-       * is.
-       */
-      .addHealthCheck('chain', {
-        requires: ['node'],
-        ready: {
-          display: i18n('Chain'),
-          fn: async () => {
-            const read = async (args: string[]) => {
-              const r = await subcontainer.exec([...cli, ...args])
-              if (r.exitCode !== 0) return null
-              try {
-                return JSON.parse(r.stdout.toString())
-              } catch {
-                return null
-              }
-            }
+  const bitcoinArgs: string[] = [`-onion=${torSocks}`]
 
-            const info = await read(['getblockchaininfo'])
-            if (!info) {
-              return {
-                result: 'starting' as const,
-                message: i18n('Waiting for the node to answer RPC'),
-              }
-            }
+  if (reindexBlockchain) {
+    bitcoinArgs.push('-reindex')
+    await storeJson.merge(effects, { reindexBlockchain: false })
+  } else if (reindexChainstate) {
+    bitcoinArgs.push('-reindex-chainstate')
+    await storeJson.merge(effects, { reindexChainstate: false })
+  }
 
-            const deployments = await read(['getdeploymentinfo'])
-            // rc3 renamed this top-level key from `hardfork` to `blake2b`
-            // (rpc/blockchain.cpp, `deploymentinfo.pushKV`); its contents are
-            // unchanged, `height` and `active`. Read either, so a repin in
-            // either direction cannot turn this check into a false failure
-            // claiming the node is not running the fork. Verified against a
-            // built rc3 binary: the key is `blake2b`.
-            const hardfork = deployments?.blake2b ?? deployments?.hardfork
-            if (!hardfork) {
-              // Would mean a build with no BLAKE2b schedule on mainnet, which
-              // this image should not be able to produce. Say so rather than
-              // reporting healthy.
+  const bitcoindSub = await sdk.SubContainer.eager(
+    effects,
+    { imageId: 'bitcoind' },
+    bitcoinMounts,
+    'bitcoind-sub',
+  )
+
+  const rpcCookiePath = `${rootDir}/${rpccookiefile}`
+
+  // remove cookie file
+  await rm(`${bitcoindSub.rootfs}${rpcCookiePath}`, {
+    force: true,
+    recursive: true,
+  })
+
+  /**
+   * ======================== Daemons ========================
+   *
+   * Unconditional daemons are chained synchronously on baseDaemons.
+   * Conditional daemons (i2pd, proxy) use async factories that return
+   * null to skip or params to include. Type assertions (as [...]) are
+   * needed because async factories weaken TypeScript's contextual typing.
+   */
+
+  const i2pEnabled = !!bitcoinConf.raw?.i2psam
+  const externalip = bitcoinConf.raw?.externalip
+  const onlynetList = [bitcoinConf.onlynet ?? []].flat()
+  const onlynetActive = onlynetList.length > 0
+  const excludedByOnlynetResult = () => ({
+    result: 'disabled' as const,
+    message: i18n('Excluded by onlynet'),
+  })
+
+  const runI2pd = i2pEnabled && (!onlynetActive || onlynetList.includes('i2p'))
+
+  const i2pdSub = runI2pd
+    ? await sdk.SubContainer.eager(
+        effects,
+        { imageId: 'i2pd' },
+        sdk.Mounts.of().mountVolume({
+          volumeId: 'i2pd',
+          mountpoint: '/home/i2pd',
+          subpath: null,
+          readonly: false,
+          type: 'directory',
+        }),
+        'i2pd-sub',
+      )
+    : null
+
+  // ---- Build daemon chain step by step ----
+
+  const base = sdk.Daemons.of(effects)
+    // StartOS mounts volumes root-owned on every start, and this image runs
+    // bitcoind as the unprivileged `bitcoin` user rather than as root the way
+    // the official package's image does. Without this the node cannot write its
+    // own files. Found the hard way: the package built, packed and installed
+    // clean, then crash-looped on `/data/bitcoin.conf: Permission denied`.
+    //
+    // A oneshot rather than a migration, because it is a fact about the volume
+    // re-asked on every start, not about our version.
+    .addOneshot('chown', {
+      subcontainer: bitcoindSub,
+      exec: {
+        command: ['chown', '-R', 'bitcoin:bitcoin', rootDir],
+        user: 'root',
+      },
+      requires: [],
+    })
+    .addOneshot('nocow', {
+      subcontainer: bitcoindSub,
+      exec: {
+        // As root, for the same reason as the chown above: the attribute is set
+        // on directories the unprivileged user has only just been given.
+        command: ['chattr', '-R', '+C', rootDir],
+        user: 'root',
+      },
+      requires: ['chown'],
+    })
+
+  const withBitcoind = await base
+    .addDaemon('bitcoind', {
+      subcontainer: bitcoindSub,
+      exec: {
+        command: ['bitcoind', ...bitcoinArgs],
+        sigtermTimeout: 300_000,
+      },
+      ready: {
+        display: 'RPC',
+        fn: async () => {
+          try {
+            await access(`${bitcoindSub.rootfs}${rpcCookiePath}`)
+          } catch {
+            console.log('Waiting for cookie to be created')
+            return {
+              message: i18n('The Bitcoin RPC Interface is not ready'),
+              result: 'starting',
+            }
+          }
+
+          return sdk.healthCheck.checkPortListening(
+            effects,
+            bitcoinConf.prune ? rpcPortPruned : rpcPort,
+            {
+              successMessage: i18n('The Bitcoin RPC Interface is ready'),
+              errorMessage: i18n('The Bitcoin RPC Interface is not ready'),
+            },
+          )
+        },
+      },
+      requires: ['nocow'],
+    })
+    /**
+     * Which chain is this node actually on?
+     *
+     * This check has no counterpart in the official package and is the reason
+     * this one can be trusted at a glance. The two mainnet chains share magic
+     * bytes, port 8333 and every block up to 961631, so this node connects to
+     * peers on the other one happily and they serve it valid blocks right up to
+     * 961639. Past that they have nothing it will accept.
+     *
+     * So the failure is not silently following the wrong chain. It is sitting
+     * one block below the fork, fully connected, with Blockchain Sync reporting
+     * a percentage that never reaches 100 and nothing else looking wrong.
+     *
+     * `getdeploymentinfo` reports a `blake2b` object (`hardfork` before rc3)
+     * carrying the activation height and whether the tip has crossed it, which
+     * is exactly enough to tell that state from an ordinary sync.
+     */
+    .addHealthCheck('chain', {
+      requires: ['bitcoind'],
+      ready: {
+        display: i18n('Chain'),
+        trigger: sdk.trigger.statusTrigger(30_000, {
+          starting: 5_000,
+          failure: 5_000,
+        }),
+        fn: async () => {
+          const read = async (method: string) => {
+            const r = await bitcoindSub.exec([
+              ...bitcoinCliArgs({ prune: !!bitcoinConf.prune }),
+              '-rpcconnect=127.0.0.1',
+              method,
+            ])
+            if (r.exitCode !== 0 || typeof r.stdout !== 'string') return null
+            try {
+              return JSON.parse(r.stdout)
+            } catch {
+              return null
+            }
+          }
+
+          const info = await read('getblockchaininfo')
+          if (!info) {
+            return {
+              result: 'starting' as const,
+              message: i18n('Waiting for the node to answer RPC'),
+            }
+          }
+
+          const deployments = await read('getdeploymentinfo')
+          // rc3 renamed this top-level key from `hardfork` to `blake2b`
+          // (rpc/blockchain.cpp, the `deploymentinfo.pushKV` call); its contents
+          // are unchanged. Read either, so a repin in either direction cannot
+          // turn this into a confident wrong answer claiming the node is not
+          // running the fork.
+          const hardfork = deployments?.blake2b ?? deployments?.hardfork
+          if (!hardfork) {
+            return {
+              result: 'failure' as const,
+              message: i18n(
+                'This node reports no BLAKE2b activation. It is not running the fork.',
+              ),
+            }
+          }
+
+          const blocks: number = info.blocks ?? 0
+          const headers: number = info.headers ?? 0
+          const activation: number = hardfork.height
+
+          // A repin to a different tag could move this. It is consensus, so it
+          // should be loud rather than inferred from a stall later.
+          if (activation !== mainnetActivationHeight) {
+            return {
+              result: 'failure' as const,
+              message: `${i18n('This build activates BLAKE2b at a different height than expected on mainnet')}: ${activation} != ${mainnetActivationHeight}`,
+            }
+          }
+
+          // Height, not `hardfork.active`. Measured: `active` flips to true one
+          // block *before* the activation height, because it reports whether the
+          // next block is subject to the rule. A node stalled at 961639
+          // therefore has `active: true`, so keying success off it would report
+          // "Following the BLAKE2b chain" for exactly the situation this check
+          // exists to catch.
+          if (blocks >= activation) {
+            return {
+              result: 'success' as const,
+              message: `${i18n('Following the BLAKE2b chain')} (${blocks})`,
+            }
+          }
+
+          if (headers > blocks) {
+            return {
+              result: 'loading' as const,
+              message: `${i18n('Syncing')} ${blocks}/${headers}`,
+            }
+          }
+
+          // One block short of the fork with no more headers to apply. Only
+          // reported after several consecutive observations, because a healthy
+          // node passes through this state briefly on its way across.
+          if (blocks === activation - 1) {
+            stalledFor = stalledAt === blocks ? stalledFor + 1 : 0
+            stalledAt = blocks
+            if (stalledFor >= STALL_OBSERVATIONS) {
               return {
                 result: 'failure' as const,
                 message: i18n(
-                  'This node reports no BLAKE2b activation. It is not running the fork.',
+                  'Stalled just below the BLAKE2b activation height, which means this node has no peers on the fork. It normally finds them through the DNS seeds. Add one directly under Peers if your network blocks DNS.',
                 ),
               }
             }
+          } else {
+            stalledFor = 0
+            stalledAt = null
+          }
 
-            const blocks: number = info.blocks ?? 0
-            const headers: number = info.headers ?? 0
-            const activation: number = hardfork.height
+          return {
+            result: 'loading' as const,
+            message: `${i18n('Before the BLAKE2b activation')} ${blocks}/${activation}`,
+          }
+        },
+      },
+    })
+    .addHealthCheck('sync-progress', {
+      ready: {
+        display: i18n('Blockchain Sync'),
+        trigger: sdk.trigger.statusTrigger(30_000, {
+          starting: 5_000,
+          failure: 5_000,
+        }),
+        fn: async () => {
+          const res = await bitcoindSub.exec([
+            ...bitcoinCliArgs({ prune: !!bitcoinConf.prune }),
+            '-rpcconnect=127.0.0.1',
+            'getblockchaininfo',
+          ])
 
-            // A repin to a different tag could move this. It is consensus, so
-            // it should be loud rather than inferred from a stall later.
-            if (activation !== mainnetActivationHeight) {
+          if (
+            res.exitCode === 0 &&
+            res.stdout !== '' &&
+            typeof res.stdout === 'string'
+          ) {
+            const info: GetBlockchainInfo = JSON.parse(res.stdout)
+
+            if (info.initialblockdownload) {
+              const percentage = (info.verificationprogress * 100).toFixed(2)
               return {
-                result: 'failure' as const,
-                message: `${i18n('This build activates BLAKE2b at a different height than expected on mainnet')}: ${activation} != ${mainnetActivationHeight}`,
+                message: i18n('Syncing blocks...${percentage}%', {
+                  percentage,
+                }),
+                result: 'loading',
               }
-            }
-
-            // Height, not `hardfork.active`. Measured: `active` flips to true
-            // one block *before* the activation height, because it reports
-            // whether the next block is subject to the rule. A node stalled at
-            // 961639 therefore has `active: true`, and keying success off it
-            // would report "following the BLAKE2b chain" for exactly the
-            // situation this check exists to catch.
-            if (blocks >= activation) {
-              return {
-                result: 'success' as const,
-                message: `${i18n('Following the BLAKE2b chain')} (${blocks})`,
-              }
-            }
-
-            // Not yet across the fork. Two very different reasons, and the whole
-            // point is to tell them apart.
-            if (headers > blocks) {
-              return {
-                result: 'loading' as const,
-                message: `${i18n('Syncing')} ${blocks}/${headers}`,
-              }
-            }
-
-            // One block short of the fork, with no more headers to apply. This
-            // is the stall, and it has one cause worth naming: no peers on this
-            // side of the split. Both chains share magic bytes and port 8333,
-            // so a node can be fully connected to peers that will happily serve
-            // it everything up to 961639 and nothing after.
-            //
-            // The headline used to be the other candidate here, and is not any
-            // more: mainnet's is compiled into chainparams as of this pin, so
-            // this package cannot get it wrong. That is why the two-way message
-            // this check used to print is gone.
-            //
-            // Only reported after several consecutive observations, because a
-            // healthy node passes through this state briefly on its way across
-            // the fork.
-            if (blocks === activation - 1) {
-              stalledFor = stalledAt === blocks ? stalledFor + 1 : 0
-              stalledAt = blocks
-              if (stalledFor >= STALL_OBSERVATIONS) {
-                return {
-                  result: 'failure' as const,
-                  message: i18n(
-                    'Stalled just below the BLAKE2b activation height, which means this node has no peers on the fork. It normally finds them through the DNS seeds. Add one directly with the Set Peers action if your network blocks DNS.',
-                  ),
-                }
-              }
-            } else {
-              stalledFor = 0
-              stalledAt = null
             }
 
             return {
-              result: 'loading' as const,
-              message: `${i18n('Before the BLAKE2b activation')} ${blocks}/${activation}`,
+              message: i18n('Bitcoin is fully synced'),
+              result: 'success',
+            }
+          }
+
+          return {
+            message: i18n('Bitcoin is starting…'),
+            result: 'starting',
+          }
+        },
+      },
+      requires: ['bitcoind'],
+    })
+    .addOneshot('synced-true', {
+      subcontainer: null,
+      exec: {
+        fn: async () => {
+          if (!store.fullySynced) {
+            await sdk.notification.create(effects, {
+              level: 'success',
+              title: i18n('Sync Complete'),
+              message: i18n('The blockchain is fully synced.'),
+            })
+            await storeJson.merge(effects, {
+              fullySynced: true,
+              snapshotInUse: false,
+            })
+            // Keep the in-memory guard in sync so a sync-progress dip and
+            // recovery within this run doesn't re-fire the notification.
+            store.fullySynced = true
+            // Reduce dbcache and dbbatchsize after initial sync to free RAM
+            await bitcoinConfFile.merge(effects, {
+              dbcache: undefined,
+              dbbatchsize: undefined,
+            })
+          }
+
+          return null
+        },
+      },
+      requires: ['sync-progress'],
+    })
+    // I2P daemon (conditional)
+    .addDaemon('i2pd', async () => {
+      if (!i2pdSub) return null
+      if (!i2pdConf) throw new Error('No i2pd.conf')
+
+      // Entrypoint runs `ln -s` for certificates, which fails on restarts
+      // when the symlink persists on the volume
+      await i2pdSub.execFail(['rm', '-rf', '/home/i2pd/data/certificates'], {
+        user: 'root',
+      })
+      // i2pd warns on every start if the client-tunnels file is absent; we
+      // ship no client tunnels, so seed an empty one (chown below owns it)
+      await i2pdSub.execFail(['touch', '/home/i2pd/data/tunnels.conf'], {
+        user: 'root',
+      })
+      // Fix volume ownership for the non-root i2pd user
+      await i2pdSub.execFail(['chown', '-R', 'i2pd', '/home/i2pd'], {
+        user: 'root',
+      })
+
+      return {
+        subcontainer: i2pdSub,
+        exec: {
+          command: sdk.useEntrypoint(),
+        },
+        ready: {
+          display: 'I2P',
+          // A router that can never bootstrap used to be indistinguishable
+          // from one still starting: every branch below returned a bare
+          // `starting` with no message, forever. Past the grace period the
+          // states that will not resolve on their own now report `failure`
+          // and say what is wrong.
+          gracePeriod: 5 * 60 * 1000,
+          fn: async () => {
+            try {
+              // i2pd never validates the I2PControl token (PurpleI2P/i2pd#2138)
+              // and logs an error for `Token` as an unknown RouterInfo field.
+              const info = await i2pControlRpc('RouterInfo', {
+                'i2p.router.net.status': null,
+                'i2p.router.netdb.knownpeers': null,
+                'i2p.router.netdb.activepeers': null,
+              })
+              const netStatus = info?.result?.['i2p.router.net.status']
+              const knownPeers = info?.result?.['i2p.router.netdb.knownpeers']
+              const activePeers = info?.result?.['i2p.router.netdb.activepeers']
+
+              // A reply without a usable `result` (e.g. a JSON-RPC error
+              // object) used to slip through every guard below — undefined
+              // compares false against numbers — and report success. Fail
+              // toward `starting` instead.
+              if (info?.result == null || netStatus == null) {
+                return {
+                  result: 'starting' as const,
+                  message: i18n('Starting the I2P router'),
+                }
+              }
+
+              // An empty netDb means reseed never landed — the router has
+              // nothing to connect to and will not recover on its own. It
+              // reseeds over HTTPS by hostname, so the usual cause is that
+              // the server cannot resolve names at all.
+              if (knownPeers <= 1) {
+                return {
+                  result: 'failure' as const,
+                  message: i18n(
+                    'No peers found. The router could not reach a reseed server, which usually means this server cannot resolve DNS. Check System > DNS Servers.',
+                  ),
+                }
+              }
+
+              // net.status 0-7 are operational (OK, testing, firewalled, hidden, warnings)
+              // net.status 8+ are errors (I2CP, clock skew, no peers, etc.)
+              if (netStatus >= 8) {
+                return {
+                  result: 'failure' as const,
+                  message: i18n(
+                    'The I2P router reported error status ${status}',
+                    {
+                      status: String(netStatus),
+                    },
+                  ),
+                }
+              }
+
+              // Reseeded, but no tunnels yet — this one does resolve itself.
+              if (activePeers === 0) {
+                return {
+                  result: 'starting' as const,
+                  message: i18n('Building the network database'),
+                }
+              }
+
+              return {
+                result: 'success' as const,
+                message:
+                  bitcoinConf.raw?.i2pacceptincoming !== false
+                    ? i18n('Inbound and outbound connections')
+                    : i18n('Outbound connections only'),
+              }
+            } catch {
+              return {
+                result: 'starting' as const,
+                message: i18n('Starting the I2P router'),
+              }
             }
           },
         },
+        requires: [],
+      }
+    })
+
+  const withI2p = runI2pd
+    ? withBitcoind
+    : withBitcoind.addHealthCheck('i2p', {
+        ready: {
+          display: 'I2P',
+          fn: () =>
+            i2pEnabled
+              ? excludedByOnlynetResult()
+              : {
+                  result: 'disabled' as const,
+                  message: i18n('I2P is disabled'),
+                },
+        },
+        requires: [],
       })
-      // Serves the blocks this node has dropped, and only then. Returning null
-      // when unpruned is how a conditional daemon is expressed; there is nothing
-      // to fetch on an archival node and the port belongs to bitcoind.
-      //
-      // A dependent needs no notion of any of this. It resolves the same host
-      // and port either way, and gets a node that answers for the whole chain.
-      .addDaemon('proxy', async () => {
-        if (!pruning) return null
 
-        const proxySub = await sdk.SubContainer.eager(
-          effects,
-          { imageId: 'proxy' },
-          sdk.Mounts.of().mountVolume({
-            volumeId: 'main',
-            subpath: null,
-            mountpoint: dataDir,
-            readonly: true,
-          }),
-          'proxy-sub',
-        )
-
-        // Mainnet keeps its cookie at the root of the data directory. A named
-        // chain would put it in a subdirectory, which is what this used to have
-        // to work out; there is no named chain any more.
-        const cookie = `${dataDir}/.cookie`
-
-        // Written by hand rather than through a TOML library: every value here
-        // is a number or a path this file computed, none of it is user input,
-        // and adding a dependency to serialize eight known lines is not worth
-        // the supply chain.
-        await writeFile(
-          `${proxySub.rootfs}/config.toml`,
-          [
-            `bitcoind_address = "127.0.0.1"`,
-            `bitcoind_port = ${rpcPortPruned}`,
-            `bind_address = "0.0.0.0"`,
-            `bind_port = ${rpcPort}`,
-            `cookie_file = "${cookie}"`,
-            // Dependents authenticate to the proxy with the same cookie
-            // bitcoind wrote, so nothing new is generated, stored or shared.
-            `passthrough_rpccookie = "${cookie}"`,
-            // Users derived from passthrough carry no fetch_blocks of their
-            // own, so this global switch is what grants them on-demand fetching
-            // of dropped blocks. Without it every getblock goes straight to
-            // bitcoind and a pruned block still fails.
-            `default_fetch_blocks = true`,
-            // Unset, the proxy asks every eligible peer for the same block at
-            // once and keeps the first valid answer, which is N copies of every
-            // fetch.
-            `max_peer_concurrency = 3`,
-            // A verbose transaction lookup asks for the same block twice by
-            // itself, so the repeat should not go back to the network.
-            `block_cache_size_mib = 64`,
-            '',
-          ].join('\n'),
-          { mode: 0o600 },
-        )
-
-        return {
-          subcontainer: proxySub,
-          exec: {
-            // The verbosity counter starts at Critical, a level the proxy has
-            // no call sites for, so unraised it cannot report a failure at all.
-            command: [
-              '/usr/bin/btc_rpc_proxy',
-              '--conf',
-              '/config.toml',
-              '-vv',
-            ] as [string, ...string[]],
-          },
-          ready: {
-            display: i18n('RPC Proxy'),
-            fn: () =>
-              sdk.healthCheck.checkPortListening(effects, rpcPort, {
-                successMessage: i18n('Serving RPC, and fetching pruned blocks'),
-                errorMessage: i18n('The RPC proxy is not ready'),
-              }),
-          },
-          requires: ['node' as const],
+  // Tor
+  const withTor = withI2p.addHealthCheck('tor', {
+    ready: {
+      display: 'Tor',
+      fn: () => {
+        if (!torInstalled) {
+          return { result: 'disabled', message: i18n('Tor is not installed') }
         }
-      })
-  )
+        if (!torRunning) {
+          return { result: 'disabled', message: i18n('Tor is not running') }
+        }
+        if (onlynetActive && !onlynetList.includes('onion')) {
+          return excludedByOnlynetResult()
+        }
+        return {
+          result: 'success',
+          message: externalip?.some((ip) => ip?.includes('.onion'))
+            ? i18n('Inbound and outbound connections')
+            : i18n('Outbound only. Add an onion address to enable inbound.'),
+        }
+      },
+    },
+    requires: [],
+  })
+
+  // Clearnet
+  const withClearnet = withTor.addHealthCheck('clearnet', {
+    ready: {
+      display: 'Clearnet',
+      fn: () => {
+        if (
+          onlynetActive &&
+          !onlynetList.includes('ipv4') &&
+          !onlynetList.includes('ipv6')
+        ) {
+          return excludedByOnlynetResult()
+        }
+        return {
+          result: 'success',
+          message: externalip?.some((ip) => ip && !ip.includes('.onion'))
+            ? i18n('Inbound and outbound connections')
+            : i18n('Outbound only. Publish an IP address to enable inbound.'),
+        }
+      },
+    },
+    requires: [],
+  })
+
+  // RPC proxy (conditional, enabled when pruning)
+  return withClearnet.addDaemon('proxy', async () => {
+    if (!bitcoinConf.prune) return null
+
+    const subcontainer = await sdk.SubContainer.eager(
+      effects,
+      { imageId: 'proxy' },
+      bitcoinMounts,
+      'proxy-sub',
+    )
+
+    await writeFile(
+      `${subcontainer.rootfs}/config.toml`,
+      TOML.stringify({
+        bitcoind_address: '127.0.0.1',
+        bitcoind_port: rpcPortPruned,
+        bind_address: '0.0.0.0',
+        bind_port: rpcPort,
+        cookie_file: rpcCookiePath,
+        tor_proxy: torSocks,
+        tor_only: onlynetList.length === 1 && onlynetList[0] === 'onion',
+        // Users derived from the two passthrough sources carry no explicit
+        // fetch_blocks, so this global switch is what grants them on-demand
+        // fetching of pruned blocks over p2p. Without it the proxy forwards
+        // every getblock straight to bitcoind.
+        default_fetch_blocks: true,
+        // Unset, the proxy asks every eligible peer for the same block at once
+        // and keeps the first valid answer — N copies of every fetch.
+        max_peer_concurrency: 3,
+        // Peers reachable only over I2P need i2pd's SOCKS proxy; the fetcher
+        // reaches clearnet and .onion peers on its own.
+        ...(runI2pd && i2pdConf?.socksproxy.enabled
+          ? { i2p_proxy: `127.0.0.1:${i2pdConf.socksproxy.port}` }
+          : {}),
+        passthrough_rpcauth: `${rootDir}/bitcoin.conf`,
+        passthrough_rpccookie: rpcCookiePath,
+      }),
+    )
+
+    return {
+      subcontainer,
+      exec: {
+        // The verbosity counter starts at Critical, a level the proxy has no
+        // call sites for, so unraised it cannot report a failure at all.
+        command: [
+          '/usr/bin/btc_rpc_proxy',
+          '--conf',
+          '/config.toml',
+          '-vv',
+        ] as [string, ...string[]],
+      },
+      ready: {
+        display: i18n('RPC Proxy'),
+        fn: () =>
+          sdk.healthCheck.checkPortListening(effects, rpcPort, {
+            successMessage: i18n('The Bitcoin RPC Proxy is ready'),
+            errorMessage: i18n('The Bitcoin RPC Proxy is not ready'),
+          }),
+      },
+      requires: ['bitcoind' as const],
+    }
+  })
 })

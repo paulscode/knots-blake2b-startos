@@ -73,23 +73,40 @@ RUN cmake -B build \
 # ----------------------------------------------------------------------
 FROM debian:bookworm-slim
 
+# Runtime dependencies, and what each is actually for:
+#
+#   libevent, libsqlite3  bitcoind links against them. This is a normal
+#                         dynamically-linked build, not a static one.
+#   wget                  the plain-Docker entrypoint's RPC probe.
+#   curl                  the Take Snapshot (assumeutxo) action downloads the
+#                         UTXO snapshot with it, inside this image.
+#   e2fsprogs             `chattr -R +C`, which main.ts runs as a oneshot before
+#                         bitcoind starts. On a copy-on-write filesystem, leaving
+#                         it on for the chainstate turns every write into a new
+#                         extent and the database fragments badly.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         libevent-core-2.1-7 libevent-extra-2.1-7 libevent-pthreads-2.1-7 \
-        libsqlite3-0 wget \
+        libsqlite3-0 wget curl e2fsprogs \
     && rm -rf /var/lib/apt/lists/* \
     && useradd -r -m -d /data -u 1000 bitcoin
 
 COPY --from=build /src/build/bin/bitcoind /src/build/bin/bitcoin-cli /usr/local/bin/
 COPY --from=build /src/PINNED_COMMIT /etc/knots-pinned-commit
+
+# The plain-Docker entrypoint. StartOS does NOT use it: `main.ts` runs `bitcoind`
+# directly, against a bitcoin.conf written by this package's own file model, and
+# running this script there would overwrite that file with one generated from
+# environment variables StartOS does not set.
+#
+# It stays because `docker/docker-compose.yml` in the gateway package, and anyone
+# running this image by hand, has no settings form and needs the config generated
+# from the environment. The two paths do not overlap: one is reached by the image
+# ENTRYPOINT, the other by an explicit command.
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
 VOLUME /data
-EXPOSE 18443 18444
-# Create the settings mountpoint owned by the runtime user. A named volume
-# inherits the ownership of the image directory it covers, so doing this here
-# is what makes a fresh volume writable without anything running as root.
-RUN mkdir -p /config && chown bitcoin:bitcoin /config
+EXPOSE 18443 18444 18445
 
 USER bitcoin
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
