@@ -104,7 +104,22 @@ export const main = sdk.setupMain(async ({ effects }) => {
   let stalledAt: number | null = null
   let stalledFor = 0
 
-  const bitcoinArgs: string[] = [`-onion=${torSocks}`]
+  // `-datadir` is explicit here and is NOT optional, which is the one thing the
+  // port from the official package could not inherit.
+  //
+  // That package's image runs bitcoind as root, whose home is /root, so
+  // bitcoind's default data directory is already /root/.bitcoin and it needs no
+  // flag. This image runs as the unprivileged `bitcoin` user, created with
+  // `-d /data`, so bitcoind's default becomes `/data/.bitcoin` — a directory
+  // inside the volume rather than the volume itself.
+  //
+  // Left off, the node starts, reports "Using data directory /data/.bitcoin",
+  // skips the bitcoin.conf this package writes at /data/bitcoin.conf, and begins
+  // syncing a second copy of the chain beside the real one with every setting at
+  // its built-in default. It does not fail; it looks like a fresh install that
+  // has lost its data. Observed on the lab box at 1.0.0:31 before this line
+  // existed, which is also why the version was never released without it.
+  const bitcoinArgs: string[] = [`-datadir=${rootDir}`, `-onion=${torSocks}`]
 
   if (reindexBlockchain) {
     bitcoinArgs.push('-reindex')
