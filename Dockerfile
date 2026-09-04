@@ -5,15 +5,10 @@
 # v29.4.1.knots20260508, the final release rather than a candidate, recorded as
 # a SHA because a tag can be moved and a SHA cannot.
 #
-# Why this tag rather than luke-jr's development branch: the testnet4 BLAKE2b
-# activation height (150027) is compiled into CTestNet4Params, and it is only
-# there in the bitcoinknots release-candidate tags. Regtest works from either
-# tree, because there the height comes from -testactivationheight=blake2b@N, but
-# testnet4 needs this one.
-#
-# This image serves a mainnet node. rc2 and rc3 refused ChainType::MAIN outright
-# at init.cpp ("This release candidate only supports test networks"); rc4 removed
-# that guard, because BLAKE2b activated on mainnet at height 961640 on 2026-08-30.
+# This image serves a mainnet node, and as of 1.0.0:30 that is the only chain the
+# package offers. rc2 and rc3 refused ChainType::MAIN outright at init.cpp ("This
+# release candidate only supports test networks"); rc4 removed that guard, because
+# BLAKE2b activated on mainnet at height 961640 on 2026-08-30.
 #
 # The consensus parameters are the ones this package has carried since rc4 and are
 # unchanged here: Blake2bHeight 961640, Blake2bTargetShift 22, and SIGHASH_UNIFIED
@@ -22,26 +17,20 @@
 # NODE_BLAKE2B for the first outbound slots, and assumevalid and minimum chain work
 # anchored to a block on the BLAKE2b chain rather than the other one.
 #
-# What it cannot serve, as of this pin, is the public test network. This release
-# still compiles testnet4's activation at 150308, and the live testnet4 chain
-# activated at 150027 and has passed 150308 already, so the two are different
-# chains. Worth re-checking whenever the pin moves: the height has been re-cut
-# before, and a testnet4 restart on 150308 would make this refusal wrong.
-# entrypoint.sh refuses testnet4 rather than letting it stall at 150026, which
-# is what that mismatch looks like from the outside.
+# The binary can still run regtest and testnet4; the package simply does not offer
+# them. That matters for UPDATING.md, whose verification flow drives the binary
+# directly on regtest to watch the header format change at an activation height.
+# Do not read the absence of a chain selector as an absence of the chain.
 
 # Why the activation height and the headline are not build arguments: both are
-# compiled into chainparams and checked by consensus, and both are re-cut by
+# compiled into chainparams and checked by consensus, and both were re-cut by
 # upstream at every release candidate. See UPDATING.md.
 #
-# blake2b_headline is no longer mandatory on every chain, and is no longer read on
-# mainnet at all: this release hardcodes the mainnet headline into chainparams and
-# demotes the option to a regtest-only one. entrypoint.sh still writes it on every
-# chain, which is deliberate. The option stays registered for all of them, so
-# passing it where it is ignored is not an error, and the string forced on mainnet
-# is byte-identical to the one compiled in, so the line is a no-op there rather
-# than a disagreement. On regtest it is still read, and throws unless
-# -testactivationheight=blake2b@<height> is set with it; see entrypoint.sh.
+# entrypoint.sh writes neither, and writes no blake2b_headline line at all. This
+# release hardcodes the mainnet headline into chainparams and demotes the option
+# to a regtest-only one that throws unless -testactivationheight=blake2b@<height>
+# is set with it. Writing an option the node ignores would only invite someone to
+# change it and expect an effect.
 #
 # There are no published binaries for this tag yet: bitcoinknots.org and the
 # GitHub releases page both stop at 29.4.knots20260508, so there is no artifact

@@ -6,18 +6,12 @@ import { sdk } from './sdk'
 import {
   chainFlag,
   dataDir,
-  defaultActivationHeight,
-  defaultChain,
-  defaultHeadline,
-  headlineFor,
   rpcAllowIpPruned,
   rpcBindPruned,
   rpcPort,
   rpcPortPruned,
-  chainDataSubdir,
   defaultPruneMib,
   mainnetActivationHeight,
-  type Chain,
 } from './utils'
 
 export const main = sdk.setupMain(async ({ effects }) => {
@@ -26,37 +20,18 @@ export const main = sdk.setupMain(async ({ effects }) => {
   // Tolerate an absent store rather than refusing to start: every field has a
   // default, so there is nothing here that a missing file makes unsafe.
   const store = await storeJson.read().const(effects)
-  const chain: Chain = store?.chain ?? defaultChain
 
-  // No curated list on either chain now. On mainnet the node finds fork peers
-  // itself: bitcoind queries every DNS seed as `x<SeedsServiceFlags()>`, which
-  // on this build is x10000009, being NODE_NETWORK | NODE_WITNESS |
-  // NODE_BLAKE2B, and two of mainnet's seeds answer that prefix with fork
-  // nodes. On regtest there is nothing to discover. So this is whatever the
-  // operator supplied, and normally empty.
-  //
-  // testnet4 did need a curated list, because its DNS seeds return ordinary
-  // testnet4 nodes. That list is in git history if that chain comes back.
+  // No curated list, and that is deliberate. bitcoind queries every DNS seed as
+  // `x<SeedsServiceFlags()>`, which on this build is x10000009, being
+  // NODE_NETWORK | NODE_WITNESS | NODE_BLAKE2B, and two of mainnet's seeds
+  // answer that prefix with fork nodes. So this is whatever the operator
+  // supplied, and normally empty.
   const addnodes = [...(store?.addnodes ?? [])]
 
   const pruning = (store?.prune ?? defaultPruneMib) !== 0
 
   const env = {
-    CHAIN: chain,
-    // On testnet4 this is fixed by the chain's own activation block, not a
-    // setting: a wrong value makes the node reject block 150027 and stop there.
-    // See headlineFor.
-    BLAKE2B_HEADLINE: headlineFor(
-      chain,
-      store?.blake2bHeadline ?? defaultHeadline,
-    ),
-    // Written into the conf only on regtest; see entrypoint.sh. Passing it
-    // regardless keeps this side simple and the decision in one place.
-    BLAKE2B_ACTIVATION_HEIGHT: String(
-      store?.activationHeight ?? defaultActivationHeight,
-    ),
     PRUNE: String(store?.prune ?? defaultPruneMib),
-    FASTPRUNE: (store?.fastprune ?? true) ? '1' : '0',
     // Pruning puts btc-rpc-proxy on 18443, the port dependents resolve, and
     // moves bitcoind behind it on loopback. Unpruned there is nothing to fetch,
     // so bitcoind keeps 18443 and no proxy runs.
@@ -84,7 +59,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
     'knots-node',
   )
 
-  const cli = ['bitcoin-cli', `-datadir=${dataDir}`, chainFlag(chain)]
+  const cli = ['bitcoin-cli', `-datadir=${dataDir}`, chainFlag]
 
   // Health-check state, held across polls by the closure below. A node crossing
   // the fork sits at activation-1 for a few seconds legitimately, so the stall
@@ -130,18 +105,18 @@ export const main = sdk.setupMain(async ({ effects }) => {
        * Which chain is this node actually on?
        *
        * The question the UI could not otherwise answer, and the reason this
-       * check exists rather than a plain sync-progress bar. On testnet4 the
-       * BLAKE2b fork shares the magic bytes, default port and genesis block of
-       * ordinary testnet4, so a fork node and a Core node connect to each other
-       * happily and exchange headers. They disagree only from height 150027,
-       * where this node rejects the other chain's 80-byte SHA256d headers.
+       * check exists rather than a plain sync-progress bar. The two mainnet
+       * chains share magic bytes, port 8333 and every block up to 961631, so a
+       * BLAKE2b node and an ordinary one connect to each other happily and
+       * exchange headers. They disagree only from 961640, where this node
+       * rejects the other chain's 80-byte SHA256d headers.
        *
-       * So the failure is not silently following the wrong chain: it is sitting
-       * one block below the fork, fully connected, looking synced, forever.
-       * `getdeploymentinfo` reports a `blake2b` object (`hardfork` before rc3)
-       * carrying the activation
-       * height and whether the tip has crossed it, on both regtest and testnet4,
-       * which is exactly enough to say which of those two situations this is.
+       * So the failure this catches is not silently following the wrong chain:
+       * it is sitting one block below the fork, fully connected, looking
+       * synced, forever. `getdeploymentinfo` reports a `blake2b` object
+       * (`hardfork` before rc3) carrying the activation height and whether the
+       * tip has crossed it, which is exactly enough to say which situation this
+       * is.
        */
       .addHealthCheck('chain', {
         requires: ['node'],
@@ -175,13 +150,13 @@ export const main = sdk.setupMain(async ({ effects }) => {
             // built rc3 binary: the key is `blake2b`.
             const hardfork = deployments?.blake2b ?? deployments?.hardfork
             if (!hardfork) {
-              // Would mean a build with no BLAKE2b schedule on this chain, which
+              // Would mean a build with no BLAKE2b schedule on mainnet, which
               // this image should not be able to produce. Say so rather than
               // reporting healthy.
               return {
                 result: 'failure' as const,
                 message: i18n(
-                  'This node reports no BLAKE2b activation for this chain. It is not running the fork.',
+                  'This node reports no BLAKE2b activation. It is not running the fork.',
                 ),
               }
             }
@@ -192,7 +167,7 @@ export const main = sdk.setupMain(async ({ effects }) => {
 
             // A repin to a different tag could move this. It is consensus, so
             // it should be loud rather than inferred from a stall later.
-            if (chain === 'mainnet' && activation !== mainnetActivationHeight) {
+            if (activation !== mainnetActivationHeight) {
               return {
                 result: 'failure' as const,
                 message: `${i18n('This build activates BLAKE2b at a different height than expected on mainnet')}: ${activation} != ${mainnetActivationHeight}`,
@@ -201,9 +176,9 @@ export const main = sdk.setupMain(async ({ effects }) => {
 
             // Height, not `hardfork.active`. Measured: `active` flips to true
             // one block *before* the activation height, because it reports
-            // whether the next block is subject to the rule. A testnet4 node
-            // stalled at 150026 therefore has `active: true`, and keying success
-            // off it would report "following the BLAKE2b chain" for exactly the
+            // whether the next block is subject to the rule. A node stalled at
+            // 961639 therefore has `active: true`, and keying success off it
+            // would report "following the BLAKE2b chain" for exactly the
             // situation this check exists to catch.
             if (blocks >= activation) {
               return {
@@ -221,34 +196,29 @@ export const main = sdk.setupMain(async ({ effects }) => {
               }
             }
 
-            // One block short of the fork. On testnet4 this is the stall, and
-            // there are two quite different causes. Distinguishing them matters,
-            // because the remedies have nothing to do with each other.
+            // One block short of the fork, with no more headers to apply. This
+            // is the stall, and it has one cause worth naming: no peers on this
+            // side of the split. Both chains share magic bytes and port 8333,
+            // so a node can be fully connected to peers that will happily serve
+            // it everything up to 961639 and nothing after.
             //
-            // A node with no fork peers never learns the fork's headers, so its
-            // header count stops at the same place as its block count. A node
-            // that has the headers but cannot get past 150026 is *rejecting*
-            // those blocks, and by far the likeliest reason is a wrong
-            // `blake2b_headline`, which is a consensus check applied at exactly
-            // that height.
+            // The headline used to be the other candidate here, and is not any
+            // more: mainnet's is compiled into chainparams as of this pin, so
+            // this package cannot get it wrong. That is why the two-way message
+            // this check used to print is gone.
             //
             // Only reported after several consecutive observations, because a
             // healthy node passes through this state briefly on its way across
             // the fork.
-            if (chain === 'mainnet' && blocks === activation - 1) {
+            if (blocks === activation - 1) {
               stalledFor = stalledAt === blocks ? stalledFor + 1 : 0
               stalledAt = blocks
               if (stalledFor >= STALL_OBSERVATIONS) {
                 return {
                   result: 'failure' as const,
-                  message:
-                    headers > blocks
-                      ? i18n(
-                          'Stuck at the block before BLAKE2b activation. This node has the fork’s headers but is refusing its blocks, which almost always means the headline does not match. Check the logs for bad-headline.',
-                        )
-                      : i18n(
-                          'Stalled just below the BLAKE2b activation height. This node has no peers on the fork: testnet4’s DNS seeds return ordinary testnet4 nodes, which cannot serve the blocks after it. Add fork peers with the Set Peers action.',
-                        ),
+                  message: i18n(
+                    'Stalled just below the BLAKE2b activation height, which means this node has no peers on the fork. It normally finds them through the DNS seeds. Add one directly with the Set Peers action if your network blocks DNS.',
+                  ),
                 }
               }
             } else {
@@ -284,17 +254,10 @@ export const main = sdk.setupMain(async ({ effects }) => {
           'proxy-sub',
         )
 
-        // bitcoind keeps a non-mainnet chain's cookie in a subdirectory named for
-        // that chain, and mainnet's at the root of the data directory. This used to
-        // assume the subdirectory always existed, which was true while the package
-        // offered only regtest and testnet4, and became a silent failure the day it
-        // offered mainnet: the proxy got a path with no file at it, could not
-        // authenticate to bitcoind, and the health check said "The RPC proxy is not
-        // ready" without saying why.
-        const chainSubdir = chainDataSubdir(chain)
-        const cookie = chainSubdir
-          ? `${dataDir}/${chainSubdir}/.cookie`
-          : `${dataDir}/.cookie`
+        // Mainnet keeps its cookie at the root of the data directory. A named
+        // chain would put it in a subdirectory, which is what this used to have
+        // to work out; there is no named chain any more.
+        const cookie = `${dataDir}/.cookie`
 
         // Written by hand rather than through a TOML library: every value here
         // is a number or a path this file computed, none of it is user input,

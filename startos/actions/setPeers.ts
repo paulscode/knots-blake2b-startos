@@ -12,27 +12,26 @@ export const inputSpec = InputSpec.of({
     ),
     required: false,
     default: null,
-    placeholder: 'example.org:48333',
+    placeholder: 'example.org:8333',
   }),
 })
 
 /**
- * Peers to dial, on top of whatever the chain's seeds provide.
+ * Peers to dial, on top of whatever mainnet's seeds provide.
  *
- * Rarely needed now, and worth saying why it still exists.
+ * Rarely needed, and worth saying why it still exists.
  *
- * On mainnet the node finds the fork by itself: bitcoind queries every DNS seed
- * as `x<SeedsServiceFlags()>.<seed>`, which on this build is x10000009, being
+ * The node finds the fork by itself: bitcoind queries every DNS seed as
+ * `x<SeedsServiceFlags()>.<seed>`, which on this build is x10000009, being
  * NODE_NETWORK | NODE_WITNESS | NODE_BLAKE2B, and two of mainnet's seeds answer
- * that prefix with fork nodes. So this is a fallback for when those seeds are
- * down or filtering badly, not a requirement.
+ * that prefix with fork nodes. So this is a fallback for a network that blocks
+ * DNS, or for pinning a known-good peer while diagnosing a node that is not
+ * finding the fork, not a requirement.
  *
- * It was a requirement on the BLAKE2b testnet4, whose DNS seeds returned
- * ordinary testnet4 nodes: without at least one peer actually on the fork, a
- * node synced to one block below activation and stopped there looking perfectly
- * healthy. That chain is not offered by this build, but the failure mode is the
- * same wherever seeds cannot distinguish the chains, which is why the Chain
- * health check tells "stalled below activation" apart from "no peers".
+ * The failure it addresses is worth knowing about: both chains share magic
+ * bytes and port 8333, so a node with no peers on this side of the split syncs
+ * to one block below activation and stops there looking perfectly healthy. That
+ * is what the Chain health check exists to name.
  *
  * No validation beyond trimming: bitcoind's `addnode` accepts hostnames, IPv4,
  * bracketed IPv6 and onion addresses, with or without a port, and rejecting

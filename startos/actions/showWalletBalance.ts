@@ -1,31 +1,26 @@
 import { i18n } from '../i18n'
 import { sdk } from '../sdk'
-import { storeJson } from '../fileModels/store.json'
-import { chainFlag, dataDir, defaultChain } from '../utils'
+import { chainFlag, dataDir } from '../utils'
 
 /**
  * Show what mining has actually produced, without an SSH session.
  *
- * Asked for by a user who wanted to see a balance the way a testnet4 node shows
- * one. The balance half of that is a fair request and this answers it. The other
- * half, sending coins to other testers, is not a missing feature: regtest has no
- * peer discovery, so every install is its own private chain, and two of them that
- * have both been mining cannot merge without one side's blocks being reorged
- * away. Nothing here should imply otherwise, hence the framing below.
- *
- * Immature is reported separately and deliberately. A miner who has just found 40
- * blocks has a spendable balance of zero, because coinbase outputs need 100
+ * Immature is reported separately and deliberately. A miner who has just found a
+ * block has a spendable balance of zero, because coinbase outputs need 100
  * confirmations (COINBASE_MATURITY), and a single "balance: 0" would read as
  * "mining is not working" when it is working perfectly.
+ *
+ * The wording used to say these coins were worthless and existed only on this
+ * machine, which was true of the private regtest chain this package once ran and
+ * is not true of the chain it runs now. A balance here is a real balance on the
+ * BLAKE2b chain, spendable to anyone else following it.
  */
 export const showWalletBalance = sdk.Action.withoutInput(
   'show-wallet-balance',
 
   async () => ({
     name: i18n('Show Wallet Balance'),
-    description: i18n(
-      'See what this node has mined. These coins exist only on your own private test chain.',
-    ),
+    description: i18n('See what this node has mined.'),
     warning: null,
     // bitcoin-cli needs the daemon up.
     allowedStatuses: 'only-running',
@@ -35,8 +30,6 @@ export const showWalletBalance = sdk.Action.withoutInput(
   }),
 
   async ({ effects }) => {
-    const chain = (await storeJson.read((s) => s.chain).once()) ?? defaultChain
-
     const stats = await sdk.SubContainer.withTemp(
       effects,
       { imageId: 'knots' },
@@ -48,10 +41,7 @@ export const showWalletBalance = sdk.Action.withoutInput(
       }),
       'wallet-balance',
       async (sub) => {
-        // Follow the selected chain rather than assuming regtest: this package
-        // can also run testnet4, where `-regtest` would talk to a node that is
-        // not there.
-        const cli = ['bitcoin-cli', `-datadir=${dataDir}`, chainFlag(chain)]
+        const cli = ['bitcoin-cli', `-datadir=${dataDir}`, chainFlag]
 
         // Same idempotent pair as Get Payout Address: one succeeds on a fresh
         // node, the other on a node that already has the wallet, and neither is
@@ -76,16 +66,15 @@ export const showWalletBalance = sdk.Action.withoutInput(
       },
     )
 
-    // 8 decimal places, because a regtest subsidy halves every 150 blocks and is
-    // down to fractions of a coin within a few hundred. Rounding to 2 would show
-    // a miner who is plainly working a balance of 0.00.
-    const coins = (n: number) => `${n.toFixed(8)} BTC (test)`
+    // 8 decimal places, so a balance is shown to the satoshi rather than
+    // rounded to something that reads as zero.
+    const coins = (n: number) => `${n.toFixed(8)} BTC`
 
     return {
       version: '1' as const,
       title: i18n('Wallet Balance'),
       message: i18n(
-        'These coins are only on the private test chain running on this server. They cannot be sent to anyone else, and they are not worth anything. Nothing outside this machine knows they exist.',
+        'This wallet is on the BLAKE2b chain. Its coins are spendable to anyone following that chain, and they are only as safe as your backup of this node’s wallet.',
       ),
       result: {
         type: 'group' as const,
@@ -114,9 +103,9 @@ export const showWalletBalance = sdk.Action.withoutInput(
           },
           {
             type: 'single' as const,
-            name: i18n('Blocks on this chain'),
+            name: i18n('Block height'),
             description: i18n(
-              'Your chain started empty, so this is how many blocks have been mined here.',
+              'How far this node has synced. BLAKE2b activated at block 961640.',
             ),
             value: stats.height,
             masked: false,

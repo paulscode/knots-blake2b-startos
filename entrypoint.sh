@@ -12,182 +12,59 @@ CONF="$DATADIR/bitcoin.conf"
 # datadir and dependents read it. That is the pattern the official Datum package
 # uses against the official Bitcoin package, and it means no RPC secret has to be
 # generated, stored, or shared by us at all.
-: "${BLAKE2B_HEADLINE:?BLAKE2B_HEADLINE is required, and must not be empty}"
 
-if [ -z "${BLAKE2B_HEADLINE// /}" ]; then
-    echo "FATAL: BLAKE2B_HEADLINE is empty. An empty headline satisfies the node's" >&2
-    echo "       startup check but makes the consensus rule a no-op, because" >&2
-    echo "       std::search with an empty needle always matches. Refusing." >&2
-    exit 1
-fi
-
-# A settings file, when one is mounted, outranks the environment. StartOS has
-# actions for this and passes the answers in as environment; Umbrel and plain
-# Docker have no settings form at all, so the page the gateway serves writes here
-# instead. Absent, nothing changes and the environment is the only source.
-SETTINGS="${SETTINGS_FILE:-/config/settings.json}"
-settings_get() {
-    [ -s "$SETTINGS" ] || return 1
-    # Two patterns because JSON has two shapes here and the page writes both: a
-    # quoted string for `chain`, a bare number for `prune`. Matching only the
-    # quoted form meant a numeric setting read as empty and was silently ignored.
-    sed -n "s/.*\"$1\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/p" "$SETTINGS" | head -1 | grep . && return 0
-    sed -n "s/.*\"$1\"[[:space:]]*:[[:space:]]*\([0-9][0-9]*\).*/\1/p" "$SETTINGS" | head -1
-}
-
-# mainnet by default: the BLAKE2b chain is live there and following it is what
-# this image is for. A settings file still outranks this, so an install that has
-# already chosen a chain through the page keeps it across an image update.
-CHAIN="${CHAIN:-mainnet}"
-_chain_from_file="$(settings_get chain || true)"
-if [ -n "${_chain_from_file:-}" ]; then
-    CHAIN="$_chain_from_file"
-    echo "knots-blake2b: chain from $SETTINGS"
-fi
-
-# Normalise the `main` alias HERE, before anything reads the chain, and not in
-# the validating case below where it used to happen.
+# One chain: BLAKE2b on mainnet.
 #
-# Everything chain-specific in this file matches on the exact string `mainnet`,
-# including the block that forces the consensus headline. `main` reached that
-# block as an unrecognised chain, skipped it, and was only rewritten afterwards,
-# so a node asked for `main` got mainnet with whatever headline it was handed.
-# On a build where the headline is still consensus that rejects block 961640 and
-# every block after it, which looks like a peer problem rather than a
-# misconfiguration. The chain is settable from the mounted settings file, so this
-# was reachable without touching compose.
-if [ "$CHAIN" = "main" ]; then
-    CHAIN=mainnet
-fi
-
-PRUNE="${PRUNE:-0}"
-# Same precedence as the chain: a mounted settings file outranks the environment,
-# because on Umbrel and plain Docker that file is the only interface a user has.
-# 0 keeps the whole chain; anything else is a budget in MiB that bitcoind enforces
-# itself. 1 is bitcoind's manual mode and is not offered anywhere: it reports the
-# node as pruned while never discarding anything, so it grows without bound.
-_prune_from_file="$(settings_get prune || true)"
-if [ -n "${_prune_from_file:-}" ]; then
-    PRUNE="$_prune_from_file"
-    echo "knots-blake2b: prune from $SETTINGS"
-fi
-ACTIVATION_HEIGHT="${BLAKE2B_ACTIVATION_HEIGHT:-}"
-# On regtest the height and the headline have to be set together, so supply one
-# when the caller did not. StartOS always sends 1 and the Umbrel compose sets it
-# explicitly; this is for a plain `docker run` that sets neither.
+# This file used to select between regtest, testnet4 and mainnet, and most of its
+# length was that choice: a chain-dependent conf section, a headline that was
+# consensus on one chain and ignored on another, an activation height settable on
+# one chain and compiled in on the others, a curated peer list for the chain whose
+# DNS seeds returned the wrong network, and a fallback fee for chains with no fee
+# history. The lab chains existed to prove the fork worked before it had a public
+# chain to run on. It has had one since 2026-08-30.
 #
-# An empty height on regtest was never a configuration worth honouring. Regtest
-# takes its activation height only from `-testactivationheight`, and leaves
-# BLAKE2b unactivated otherwise, so the node would follow SHA256d forever, which
-# is the one thing this image is not for. Upstream also makes the two a pair as of
-# this pin: the headline is a regtest-only option and throws
-# `-blake2b_headline requires -testactivationheight=blake2b@<height>` when it is
-# set without one, so a regtest node carrying only the headline does not start at
-# all. 1 means the first block mined is already BLAKE2b, which is what the
-# packages ask for.
-if [ "$CHAIN" = "regtest" ] && [ -z "$ACTIVATION_HEIGHT" ]; then
-    ACTIVATION_HEIGHT=1
-    echo "knots-blake2b: regtest with no activation height; using ${ACTIVATION_HEIGHT}"
-fi
-# Space-separated host:port entries to dial in addition to the chain's own seeds.
-ADDNODES="${ADDNODES:-}"
-
-# testnet4 needs two things that are not the operator's to choose, so they are
-# not asked for. The headline is consensus: validation.cpp checks at the
-# activation height that the configured string appears in that block's coinbase,
-# and testnet4's block 150027 carries `Catbus`, so any other value rejects it and
-# everything after. The peers exist because testnet4's DNS seeds return ordinary
-# testnet4 nodes, which serve valid blocks up to 150026 and nothing after, so a
-# node with only them stalls one block below the fork looking healthy.
-TESTNET4_HEADLINE='Catbus'
-TESTNET4_SEEDS='82.67.102.15:48333 178.118.234.189:48333 64.177.11.149:48333 86.8.92.221:48333 136.36.150.88:48333 172.117.233.59:48333 184.179.145.52:48333 207.81.196.105:48333'
-if [ "$CHAIN" = "testnet4" ]; then
-    if [ "${BLAKE2B_HEADLINE}" != "$TESTNET4_HEADLINE" ]; then
-        echo "knots-blake2b: testnet4 requires the headline '$TESTNET4_HEADLINE'; using it"
-        BLAKE2B_HEADLINE="$TESTNET4_HEADLINE"
-    fi
-    ADDNODES="$TESTNET4_SEEDS ${ADDNODES}"
-fi
-
-# Mainnet no longer reads this. As of this pin the headline for mainnet is compiled
-# into chainparams and the option is regtest-only, so the value below cannot be got
-# wrong in a way the node would notice. It is still forced to the correct string
-# rather than dropped, so that the line written into bitcoin.conf agrees with the
-# compiled-in one instead of contradicting it, and so that a pin moving backwards
-# to a build where this was consensus does not silently start following nothing.
+# So none of the following is configurable any more, and none of it can be got
+# wrong: the activation height (961640) and the headline that block committed to
+# are both compiled into chainparams as of this pin. `blake2b_headline` is not
+# written at all now. It is a regtest-only option in this release, ignored on
+# mainnet, and writing an ignored option only invites someone to change it.
 #
-# No peer list here, unlike testnet4, and that is not an oversight. net.cpp:2418
-# queries every DNS seed as `x<SeedsServiceFlags()>.<seed>`, which on this build
-# is x10000009: NODE_NETWORK | NODE_WITNESS | NODE_BLAKE2B. Two of mainnet's
-# seeds answer that prefix with fork nodes. Measured on 2026-08-30: all ten
-# addresses they returned were on the BLAKE2b chain.
+# No `addnode` list ships either, and that is deliberate. net.cpp queries every
+# DNS seed as `x<SeedsServiceFlags()>.<seed>`, which on this build is x10000009:
+# NODE_NETWORK | NODE_WITNESS | NODE_BLAKE2B. Two of mainnet's seeds answer that
+# prefix with fork nodes. Measured on 2026-08-30: all ten addresses they returned
+# were on the BLAKE2b chain, and a node started with no peers configured found
+# the chain by itself.
 #
 # Do not be tempted to seed from gossip instead. Both chains share magic bytes
 # and port 8333, so one round of getaddr yielded 7349 candidates of which a
 # 60-peer sample had none on the fork. The service-bit filter is the only thing
 # that separates them.
-MAINNET_HEADLINE='8-30 NYPost Deride And Conquer'
-if [ "$CHAIN" = "mainnet" ]; then
-    if [ "${BLAKE2B_HEADLINE}" != "$MAINNET_HEADLINE" ]; then
-        echo "knots-blake2b: mainnet requires the headline '$MAINNET_HEADLINE'; using it"
-        BLAKE2B_HEADLINE="$MAINNET_HEADLINE"
-    fi
-fi
 
-case "$CHAIN" in
-    regtest|mainnet) ;;
-    testnet4)
-        # This release compiles testnet4's activation at 150308. The live testnet4
-        # chain forked at 150027 and is well past 150308 already, so this build
-        # expects an ordinary block where that chain has a BLAKE2b one and will
-        # stop at 150026. Refusing is better than syncing to a halt and looking
-        # like a peer problem, which is exactly what that failure looks like.
-        #
-        # The height has been re-cut more than once, so this is worth rechecking
-        # whenever the pin moves: a testnet4 that restarted on 150308 would make
-        # this refusal wrong rather than cautious.
-        echo "FATAL: this build cannot follow the public test network as it stands." >&2
-        echo "       It is built from v29.4.1.knots20260508, which activates" >&2
-        echo "       BLAKE2b on testnet4 at height 150308. The live testnet4 chain" >&2
-        echo "       activated at 150027 and has passed 150308, so this build" >&2
-        echo "       rejects it and would stall at 150026." >&2
-        echo "       Use the private test chain, or mainnet, until that network" >&2
-        echo "       restarts on 150308." >&2
-        exit 1 ;;
-    *)
-        echo "FATAL: unsupported CHAIN='$CHAIN'. Use regtest or mainnet." >&2
-        exit 1 ;;
-esac
+# Pruned unless told otherwise, on every platform including a plain `docker run`.
+# This node is meant to sit alongside a node on the other chain, and two full
+# copies of a ~960k-block chain do not fit on the servers this is for. 0 keeps
+# the whole chain; anything else is a budget in MiB that bitcoind enforces
+# itself. 1 is bitcoind's manual mode and is not offered anywhere: it reports the
+# node as pruned while never discarding anything, so it grows without bound.
+PRUNE="${PRUNE:-5000}"
 
-# bitcoind's config section for mainnet is `[main]`; for the others it is the
-# chain name itself.
-if [ "$CHAIN" = "mainnet" ]; then
-    CONF_SECTION=main
-else
-    CONF_SECTION="$CHAIN"
-fi
+# Space-separated host:port entries to dial in addition to mainnet's own seeds.
+ADDNODES="${ADDNODES:-}"
 
 {
     echo "# generated by entrypoint, do not edit"
-    # Mainnet is bitcoind's default and has no selector option: there is no
-    # `mainnet=1`, and writing one is a startup error. Its config section is
-    # `[main]`, not `[mainnet]`, so the section name is derived separately below.
-    [ "$CHAIN" != "mainnet" ] && echo "${CHAIN}=1"
+    # No chain selector line. Mainnet is bitcoind's default: there is no
+    # `mainnet=1` option and writing one is a startup error. Its config section
+    # is `[main]`, which is why that is spelled out below and not derived from
+    # any chain name.
     echo "server=1"
     echo "printtoconsole=1"
     [ -n "${RPC_USER:-}" ] && echo "rpcuser=${RPC_USER}"
     [ -n "${RPC_PASSWORD:-}" ] && echo "rpcpassword=${RPC_PASSWORD}"
-    echo "blake2b_headline=${BLAKE2B_HEADLINE}"
     [ "$PRUNE" != "0" ] && echo "prune=${PRUNE}"
-    # Regtest only: fastprune shrinks block files so a short chain can actually
-    # be pruned. On testnet4 it would just produce a great many tiny files.
-    [ "$CHAIN" = "regtest" ] && [ "${FASTPRUNE:-0}" != "0" ] && echo "fastprune=1"
-    # A fee of last resort for a chain where fee estimation has no history to
-    # work from. On mainnet it does, and a hardcoded fallback there would be a
-    # wallet setting this package has no business making.
-    [ "$CHAIN" != "mainnet" ] && echo "fallbackfee=0.0001"
     echo
-    echo "[${CONF_SECTION}]"
+    echo "[main]"
     # When pruning, btc-rpc-proxy takes 18443, the port dependents resolve, and
     # bitcoind steps aside to a loopback-only port behind it. The proxy answers
     # for blocks this node has dropped by fetching them from peers, so a
@@ -214,17 +91,6 @@ fi
     # p2p port at all.
     echo "bind=0.0.0.0:18444"
     echo "whitebind=0.0.0.0:18445"
-    # Regtest only. `-testactivationheight` is read by CRegTestParams and nowhere
-    # else, so on testnet4 bitcoind accepts it, logs it, and ignores it: the
-    # height stays the compiled-in 150027. Writing it there would be config that
-    # looks effective and is not, so it is not written.
-    #
-    # Unconditional on regtest now, rather than only when a height was supplied:
-    # the height is defaulted above precisely so the headline never travels
-    # without it. See the comment there.
-    if [ "$CHAIN" = "regtest" ]; then
-        echo "testactivationheight=blake2b@${ACTIVATION_HEIGHT}"
-    fi
     for node in $ADDNODES; do
         echo "addnode=${node}"
     done
@@ -232,26 +98,14 @@ fi
 } > "$CONF"
 
 echo "knots-blake2b: pinned commit $(cat /etc/knots-pinned-commit)"
-case "$CHAIN" in
-    regtest)  activation_note="${ACTIVATION_HEIGHT:-none}" ;;
-    mainnet)  activation_note="961640 (compiled in, not configurable)" ;;
-    *)        activation_note="compiled in, not configurable" ;;
-esac
-echo "knots-blake2b: chain=${CHAIN} prune=${PRUNE} activation=${activation_note}"
+echo "knots-blake2b: chain=mainnet prune=${PRUNE} activation=961640 (compiled in)"
 echo "knots-blake2b: addnodes=${ADDNODES:-none}"
-
-# Watch the settings file, and stop if it changes so the container's restart
-# policy brings us back reading the new one. Nothing here talks to Docker: the
-# alternative was handing a web page the Docker socket, which is root on the host
-# in exchange for saving a click. `exec` below replaces this shell with bitcoind
-# as PID 1, so signalling PID 1 is signalling bitcoind, and it shuts down cleanly.
 
 # Not `exec`. A process running as PID 1 does not get the default action for a
 # signal it has no handler for, so the kernel discards it. bitcoind installs a
-# SIGTERM handler and would have been fine; datum_gateway does not, and a settings
-# change printed "restarting to apply" while the service carried on running. So
-# the shell stays PID 1, the service is its child, and signalling the child works
-# the way signalling anything else works.
+# SIGTERM handler and would have been fine, but keeping the shell as PID 1 makes
+# the shutdown path here identical to the gateway package's, where the service
+# does not, and where getting this wrong cost a truncated shutdown.
 bitcoind -datadir="$DATADIR" "$@" &
 APP_PID=$!
 
@@ -259,27 +113,15 @@ APP_PID=$!
 # normal shutdown into a ten-second wait and a kill.
 trap 'kill -TERM "$APP_PID" 2>/dev/null || true' TERM INT
 
-# Started unconditionally, and it hashes "absent" as a state of its own. Guarding
-# on the file existing meant a settings file created *after* boot was never
-# noticed, which is exactly what happens the first time somebody uses the page:
-# there is nothing to watch until they press save, and by then the watcher would
-# never have been started.
-(
-    _hash() { [ -s "$SETTINGS" ] && sha256sum "$SETTINGS" | cut -d' ' -f1 || echo none; }
-    _seen="$(_hash)"
-    while sleep 5; do
-        _now="$(_hash)"
-        if [ "$_now" != "$_seen" ]; then
-            echo "knots-blake2b: settings changed, restarting to apply"
-            kill -TERM "$APP_PID" 2>/dev/null || true
-            exit 0
-        fi
-    done
-) &
-
-# Exits when the service does, whether that is a crash, a stop, or the watcher
-# above deciding the settings changed. Either way the restart policy decides what
-# happens next.
+# There is no settings watcher any more. It existed so that a page served by the
+# gateway app could write a shared `settings.json` holding the chain and the
+# prune target, which both containers watched and restarted on. The chain is not
+# a setting any more, and on the two platforms this image runs on the prune
+# target has a real settings form: a StartOS action, or the node app's own
+# Advanced Settings on Umbrel. Both restart the service themselves.
+#
+# Exits when the service does, whether that is a crash or a stop. Either way the
+# restart policy decides what happens next.
 #
 # The loop is the point, and one `wait` is not enough. A trapped signal makes
 # `wait` return immediately with a status above 128, *without* reaping the child:

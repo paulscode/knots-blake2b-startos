@@ -1,6 +1,10 @@
 // Ports are chosen to not collide with the official `bitcoind` package, which
-// uses 8332/58332 (RPC) and 8333/58333/58334 (peer). These are the regtest
-// defaults, which is what this chain is.
+// uses 8332/58332 (RPC) and 8333/58333/58334 (peer). These numbers are
+// bitcoind's regtest defaults, inherited from when this package ran regtest and
+// kept afterwards: they are this package's contract with dependents, and moving
+// them to mainnet's 8332/8333 would both break every dependent and collide with
+// the official package on a server running one node per chain, which is the
+// arrangement this package exists for.
 //
 // Note these are the *internal* container ports, and those are the stable ones.
 // `preferredExternalPort` is only a request: if something already holds the
@@ -54,28 +58,6 @@ export const peerPortLocal = 18445
 
 export const dataDir = '/data'
 
-// Consensus-critical, and must be identical on every node of the chain. An
-// empty value is worse than a wrong one: it satisfies the node's startup check
-// but makes the rule unenforceable, because std::search with an empty needle
-// always matches. The entrypoint refuses to start on empty.
-export const defaultHeadline = 'BLAKE2b lab 2026-08-21'
-
-// Where SHA256d stops and BLAKE2b begins.
-//
-// Defaults to 1, meaning the very first mined block is already BLAKE2b, because
-// the point of this package is that someone can install it, point a Sia ASIC at
-// the gateway, and mine. A higher value leaves the chain on SHA256d until that
-// height, and a Sia ASIC cannot mine SHA256d at all: the miner would connect,
-// receive work it cannot use, and produce nothing, with no indication why.
-//
-// Verified: with blake2b@1 the block at height 1 is a 164-byte header v2 and GBT
-// advertises !blake2b with version 0xa0000000 straight away.
-//
-// Raising this is only useful for deliberately testing the transition, and it
-// then requires mining the pre-activation blocks with the node's own miner,
-// since no Sia ASIC can produce them.
-export const defaultActivationHeight = 1
-
 /**
  * Blocks to keep, in MiB, when nobody has chosen otherwise.
  *
@@ -107,46 +89,32 @@ export const defaultPruneMib = 5000
 export const minPruneMib = 550
 
 // ---------------------------------------------------------------------------
-// Chain selection
+// The chain
 // ---------------------------------------------------------------------------
 
 /**
- * The chains this package can run.
+ * This package follows one chain: BLAKE2b on mainnet. There is no selector.
  *
- * `regtest` is a private chain of your own, where the activation height is
- * whatever you set. `testnet4` is the public BLAKE2b test network, where the
- * activation height is 150027 and is compiled into the binary, not configurable.
+ * It used to offer a private regtest chain and, before that, testnet4. Both
+ * existed to prove the fork worked before it had a public chain to run on.
+ * Mainnet split on 2026-08-30 and has been live since, so the lab chains had
+ * become a second configuration to reason about for no remaining benefit, and
+ * they were the reason this package's shape differed from the official Knots
+ * package at every turn: a chain-dependent cookie path, a chain-dependent
+ * conf section, a headline that was consensus on one chain and free text on
+ * another, an activation height that was settable on one chain and compiled in
+ * on the others.
  *
- * Mainnet is here as of the rc4 pin, and testnet4 is not, which is the reverse
- * of how this package began.
+ * An install that was running regtest keeps its data. bitcoind puts a named
+ * chain under its own subdirectory (`/data/regtest`) and mainnet at the root,
+ * so nothing is deleted by this; that directory is simply no longer reachable
+ * from the UI. See the migration in `versions/current.ts`.
  *
- * BLAKE2b activated on mainnet at height 961640 on 2026-08-30, and rc4 is the
- * first release that will run there: rc2 and rc3 refused `ChainType::MAIN`
- * outright.
- *
- * testnet4 is gone because rc4 compiles its activation at 150308 while the live
- * testnet4 chain activated at 150027 and has passed 150308 already. Those are
- * different chains, so this build cannot follow that network, and offering it
- * would only produce a node that stalls at 150026. It comes back when that
- * network restarts on rc4; the constants to restore are in git history and the
- * procedure is in UPDATING.md.
- *
- * `defaultChain` is mainnet. This package exists to follow the BLAKE2b chain,
- * that chain is live on mainnet, and a node that follows it is what someone
- * installing this almost always wants; regtest is one action away for anyone
- * who wants a private chain instead. A fresh install is also pruned by default
- * (see `defaultPruneMib`), so the mainnet sync costs gigabytes rather than the
- * whole chain.
- *
- * This default reaches new installs only. The store gains a `chain` key just
- * when someone runs Select Chain, so an existing install that never ran it has
- * no key and would otherwise read the new default and walk off its own chain on
- * upgrade. The migration in `versions/current.ts` pins those to regtest, which
- * is what they were actually running.
+ * The `bitcoin-cli` / `bitcoind` flag is spelled `-chain=main` rather than
+ * omitted. Mainnet is bitcoind's default and there is no `-mainnet` option, so
+ * naming it explicitly beats relying on the absence of a flag.
  */
-export const chains = ['regtest', 'mainnet'] as const
-export type Chain = (typeof chains)[number]
-export const defaultChain: Chain = 'mainnet'
+export const chainFlag = '-chain=main'
 
 /**
  * The height at which BLAKE2b activates on mainnet, compiled into `CMainParams`.
@@ -154,70 +122,14 @@ export const defaultChain: Chain = 'mainnet'
  *
  * The two mainnet chains part earlier than this, at 961632, where BIP110
  * activated. 961640 is where the proof of work changes.
+ *
+ * The headline that block committed to (`8-30 NYPost Deride And Conquer`) is
+ * compiled into chainparams as of this pin, so nothing here configures it. It
+ * used to be written into `bitcoin.conf` on every chain, because on regtest and
+ * testnet4 it was the operator's to choose and getting it wrong rejected the
+ * activation block. On mainnet it cannot be got wrong.
  */
 export const mainnetActivationHeight = 961640
-
-/**
- * The headline mainnet's BLAKE2b chain committed to.
- *
- * Consensus, not preference. `validation.cpp` checks at the activation height
- * that this string appears somewhere in that block's coinbase `scriptSig`.
- * Block 961640's carries `SilentWave` and then this, taken from the New York
- * Post's Sunday print edition as a proof of time. Confirmed against
- * `btc-blake2b.org/faq`, which names the same string.
- *
- * Because the check is a substring search, any string genuinely present in that
- * coinbase satisfies it, so this is safe by construction rather than by luck.
- *
- * Getting it wrong is a nasty failure: the node syncs happily to 961639 and
- * stops, logging `bad-headline` but otherwise looking exactly like a node with
- * no peers on the fork. That is why the package sets it rather than offering
- * it, and why the `chain` health check tells the two causes apart.
- */
-export const mainnetHeadline = '8-30 NYPost Deride And Conquer'
-
-/** The headline a chain requires. Only regtest leaves the choice open. */
-export function headlineFor(chain: Chain, configured: string): string {
-  return chain === 'mainnet' ? mainnetHeadline : configured
-}
-
-/**
- * The subdirectory of the data directory holding a chain's files, cookie
- * included. Empty for mainnet, which lives at the root.
- *
- * Dependents read the node's cookie out of a read-only mount, so getting this
- * wrong means no RPC credentials rather than a clear error.
- */
-export function chainDataSubdir(chain: Chain): string {
-  return chain === 'mainnet' ? '' : chain
-}
-
-/**
- * The chain a generated `bitcoin.conf` selects.
- *
- * Every chain but mainnet is chosen with a `<chain>=1` line. Mainnet has no
- * such option, because it is bitcoind's default, so *absence* is the signal.
- * A dependent that looks only for a positive marker silently concludes regtest
- * on a mainnet node and then cannot find the cookie.
- */
-export function chainFromConf(conf: string | null | undefined): Chain {
-  const lines = (conf ?? '').split('\n').map((l) => l.trim())
-  const named = chains.find(
-    (c) => c !== 'mainnet' && lines.some((l) => l === `${c}=1`),
-  )
-  return named ?? 'mainnet'
-}
-
-/**
- * The `bitcoin-cli` / `bitcoind` flag selecting a chain.
- *
- * Mainnet is the odd one out and cannot be written `-mainnet`: there is no such
- * option, because mainnet is the default. `-chain=main` is the spelling that
- * works, and naming it explicitly beats relying on the absence of a flag.
- */
-export function chainFlag(chain: Chain): string {
-  return chain === 'mainnet' ? '-chain=main' : `-${chain}`
-}
 
 /**
  * No seed list is shipped for mainnet, and that is deliberate rather than an

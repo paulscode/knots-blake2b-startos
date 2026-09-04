@@ -1,61 +1,37 @@
-# Bitcoin Knots BLAKE2b
+# Bitcoin Knots (BLAKE2b) Companion
 
-An experimental build of Bitcoin Knots carrying the proposed **BLAKE2b proof-of-work
-change**, so you can try mining it with an existing Sia-compatible BLAKE2b ASIC.
+A Bitcoin Knots node built from the **BLAKE2b proof-of-work change**, following the
+BLAKE2b chain on mainnet.
 
-It runs one of two chains, and you pick which with the **Select Chain** action:
+Bitcoin's mainnet split on 30 August 2026. The two chains part at block 961632, and
+from block 961640 one of them uses BLAKE2b for proof of work instead of SHA256d.
+BLAKE2b is the algorithm Sia mines, so ASICs built for Sia can mine this chain. This
+service runs a node that follows it and enforces its rules.
 
-- **Private chain (regtest).** Yours alone. Nothing to sync with, nothing to connect
-  to, and you mine every block yourself. This is the default and the right choice for
-  finding out whether your miner works.
-- **Public BLAKE2b test network (testnet4).** Shared with other testers. BLAKE2b
-  starts at block 150027 there. Read the section below before choosing it, because it
-  needs one extra step that the private chain does not.
+**This is a real chain with real block rewards.** Both sides of the split claim to be
+Bitcoin. Which one you follow is your decision, and installing this makes it.
 
-Coins on either chain are worthless by construction. Mainnet is not offered, and this
-build refuses to run on it.
-
-Switching chains deletes nothing. Each chain keeps its own data, so you can move
-between them and come back to find your old chain where you left it.
-
-It installs alongside the regular Bitcoin service and does not touch it. They use
+It installs alongside the official Bitcoin service and does not touch it. They use
 different ports and different data, and neither knows about the other.
 
-## If you choose the public test network
+## It is pruned by default
 
-**Peers are set up for you.** This service ships with a list of nodes that are on
-the BLAKE2b chain, so choosing the public test network is all you have to do. They
-are other people's home nodes though, so they will not last forever, and it is worth
-knowing why they are needed at all.
+This node exists to sit beside a node on the other chain, and two full copies of a
+chain this size do not fit on most servers. So it keeps about 5 GB of recent blocks
+and discards the rest.
 
-The BLAKE2b chain shares testnet4's network identity: the same genesis block, the
-same default port, the same magic bytes. So the addresses testnet4's automatic peer
-discovery hands out are real testnet4 nodes, and your node will connect to them
-happily. They are even useful, up to block 150027, because both chains share that
-history. After it, they have nothing your node will accept.
+That does not limit what a connected service can ask for. The package runs an RPC
+proxy in front of the node, which fetches a dropped block from peers and checks it
+against this node before answering. A service pointed at this one sees a node that
+behaves as though it kept everything.
 
-The result is a node that syncs to block 150026 and stops, with peers connected and
-nothing obviously wrong. The **Chain** health check exists to say so plainly: it
-reports *Stalled just below the BLAKE2b activation height* rather than leaving you to
-work it out.
-
-If that happens, the built-in peers have gone offline, and the fix is the **Set
-Peers** action: add a node that is on the BLAKE2b chain, one address per line as
-`host:port`. Ask in the Bitcoin Knots Discord for current addresses. Whatever you
-add is used alongside the built-in ones, not instead of them. Once one of them
-answers, the health check turns to *Following the BLAKE2b chain*.
-
-**The headline is not yours to choose on the public network.** Every chain commits
-to a piece of text in its first BLAKE2b block, and a node that disagrees rejects
-that block and stops. The public network's is fixed, and the package sets it for
-you. The headline setting applies only to a private chain, where you are making the
-rules.
+Change it under **Select Storage** if you would rather keep the whole chain.
 
 ## What to do with it
 
 On its own, this node does very little. It becomes useful when you also install
-**Datum Gateway BLAKE2b**, which turns its block templates into work your
-ASIC can mine.
+**Datum Gateway (BLAKE2b) Companion**, which turns its block templates into work your
+ASIC can mine, or an Electrum server or explorer that can read this chain.
 
 ## Getting a payout address
 
@@ -63,61 +39,26 @@ The gateway asks you for an address to pay block rewards to. To get one:
 
 1. Make sure this service is **running**.
 2. Go to **Actions** and run **Get Payout Address**.
-3. Copy the address. It starts with `m`, `n` or `2`.
+3. Copy the address. It starts with `bc1`.
 
 You can run it again whenever you want a fresh address. The first run creates a
 wallet on this node; later runs just add addresses to it.
 
-These are regtest addresses. They mean nothing on any other chain, and nothing of
-value can be sent to them.
+**Back that wallet up.** A block you mine pays its whole subsidy to a key this node
+holds and nothing else does. It is included in this service's StartOS backups, so
+having backups switched on is enough, but it is worth checking rather than assuming.
 
 ## Seeing what you have mined
 
 Go to **Actions** and run **Show Wallet Balance**.
 
-It shows three things: what is spendable now, what is not spendable yet, and how
-many blocks are on your chain.
+It shows what is spendable now, what is not spendable yet, and how far the node has
+synced.
 
 **A new miner's balance is almost all in "not spendable yet", and that is normal.**
 Freshly mined coins need another 100 blocks before they can be spent. If you have
-just started, "spendable now" will be `0.00000000` while blocks are piling up. That
-is not a sign anything is wrong.
-
-### These coins stay on this machine
-
-They are only on the private test chain running on your own server. You cannot send
-them to another person, and they are not worth anything.
-
-This is worth being clear about, because it is different from a testnet node. On
-testnet everyone joins one shared network, so testers can send coins to each other.
-Your chain has no network: it started empty on your server, it has no way to find
-anyone else's, and if two people who had both been mining ever did connect their
-chains, one side's blocks would simply be discarded.
-
-If you want to see the numbers move, mine more blocks. That is all the balance is
-for: confirming your miner is producing blocks your node accepts.
-
-## Settings worth knowing about
-
-The defaults are chosen so the pair works out of the box, and most people should
-leave them alone.
-
-**BLAKE2b starts at block 1** on a private chain. It uses BLAKE2b from its very first
-block, so your miner can start immediately. If you raised this, the chain would use
-SHA256d until that height, and a Sia miner cannot mine SHA256d: it would connect,
-receive work it cannot use, and appear to do nothing.
-
-On the public test network this setting does nothing at all. The activation height
-there is 150027 and it is fixed in the software, not configurable, so the node ignores
-anything you set.
-
-**The headline** is a piece of text that has to appear in the first BLAKE2b block,
-and it has to be identical on every node of a chain. Changing it means your node
-disagrees with anyone else running the default, so only change it if you are running
-your own separate chain and changing it everywhere.
-
-**Pruning** is on. This node keeps recent blocks and discards old ones. Mining does
-not need the old ones, so this costs you nothing here.
+just found your first block, "spendable now" will be `0.00000000` for about a day.
+That is not a sign anything is wrong.
 
 ## What "working" looks like
 
@@ -129,9 +70,33 @@ that is the one to read:
 | It says | It means |
 |---|---|
 | Following the BLAKE2b chain | You are past the activation height, on the fork. This is the goal. |
-| Before the BLAKE2b activation | Working normally, not yet at the activation height. On a private chain, mine some blocks. |
 | Syncing | Downloading blocks it already knows about. Wait. |
-| Stalled just below the BLAKE2b activation height | Public network only. No peers on the fork. Use Set Peers. |
-| Stuck at the block before BLAKE2b activation | Public network only. It has the blocks on offer and is refusing them, which means the headline does not match. |
+| Before the BLAKE2b activation | Working normally, not yet at block 961640. |
+| Stalled just below the BLAKE2b activation height | No peers on the fork. See below. |
 
-On a private chain with nothing mining, the height stays where it is. That is normal.
+### If it stalls just below activation
+
+This is the one failure worth explaining, because nothing else about the node looks
+wrong when it happens.
+
+Both chains share the same message prefix and the same port 8333, so your node can
+connect to peers on the other one and get along with them perfectly. They will serve
+it everything up to block 961639, because both chains share that history. After it,
+they have nothing your node will accept. The result is a node that is fully
+connected, reports plenty of peers, and never advances.
+
+Normally this does not arise. The node asks the DNS seeds specifically for peers
+advertising the fork, and two of mainnet's seeds answer that request with fork nodes.
+If your network blocks DNS, or you want to pin a peer you know is good, use the **Set
+Peers** action: one address per line as `host:port`. Whatever you add is dialled in
+addition to whatever the seeds provide, not instead of it.
+
+## Only one chain
+
+Earlier versions of this service could also run a private chain of your own, and
+before that the BLAKE2b test network. Both existed to prove the fork worked before it
+had a public chain to run on. It has had one since August 2026, so they are gone, and
+**Select Chain** with them.
+
+If you were running the private chain, its data is still on the volume and still in
+your backups. There is no longer a way to select it from this service.

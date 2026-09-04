@@ -1,14 +1,4 @@
 import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
-import { readFile } from 'fs/promises'
-import { storeJson } from '../fileModels/store.json'
-
-/**
- * The store as the migration sees it, which is the host path rather than the
- * `sdk.volumes.main` handle the file model uses. Sibling packages address the
- * same volume this way from a migration (`knots-prerdts` clears index files
- * under it), so the layout is not being guessed at here.
- */
-const storePath = '/media/startos/volumes/main/store.json'
 
 const notes =
   'A new install now follows the public BLAKE2b chain on mainnet. It used to ' +
@@ -41,45 +31,22 @@ export const v1_0_0_26 = VersionInfo.of({
     fr_FR: notes,
   },
   migrations: {
-    // Pin the chain an existing install is already running.
+    // Now a no-op, and deliberately left in the graph rather than deleted: the
+    // version has shipped, and an install coming from an older one still walks
+    // through this node on its way to current.
     //
-    // `defaultChain` moved from regtest to mainnet in this version. The store
-    // only gains a `chain` key when someone runs Select Chain, so an install
-    // that never ran it has no key at all and reads whatever the default is.
-    // Left alone, such a node would come back from this upgrade pointed at
-    // mainnet: a chain it never chose and a ~960k block sync nobody asked for.
-    // Its regtest data would still be on disk, which makes it recoverable, not
-    // harmless.
+    // What it used to do was pin the chain an existing install was already
+    // running. `defaultChain` moved from regtest to mainnet in this version,
+    // and the store only gained a `chain` key when someone ran Select Chain, so
+    // an install that never ran it would otherwise have read the new default
+    // and walked onto mainnet unasked.
     //
-    // The key has to be read raw. `storeJson.read()` returns the zod-parsed
-    // object, and `chain` carries `.catch(defaultChain)`, so a missing key comes
-    // back already filled in with the new default and absence is invisible
-    // through the model. The file itself is the only place the difference
-    // survives.
-    //
-    // Anyone who did run Select Chain has `chain` written, including those who
-    // chose mainnet deliberately, and is untouched either way.
-    up: async ({ effects }) => {
-      const raw = await readFile(storePath, 'utf8').catch(() => null)
-      if (raw === null) return
-
-      let parsed: unknown
-      try {
-        parsed = JSON.parse(raw)
-      } catch {
-        // An unreadable store is not this migration's to repair; the file model
-        // rebuilds it from defaults on the next read.
-        return
-      }
-
-      if (
-        parsed !== null &&
-        typeof parsed === 'object' &&
-        !('chain' in parsed)
-      ) {
-        await storeJson.merge(effects, { chain: 'regtest' })
-      }
-    },
+    // There is no `chain` key any more. This package follows BLAKE2b on
+    // mainnet and nothing else, so writing one here would write a key nothing
+    // reads, and the schema no longer accepts it. The move onto mainnet that
+    // this migration existed to prevent is now the intended outcome, and it is
+    // described in the release notes of the version that made it so.
+    up: async ({ effects }) => {},
     down: IMPOSSIBLE,
   },
 })

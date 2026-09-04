@@ -28,16 +28,18 @@ export const setInterfaces = sdk.setupInterfaces(async ({ effects }) => {
     query: {},
   })
 
-  // P2P. On regtest this is how two of these nodes find each other for a
-  // multi-machine test; on testnet4 it is how this node reaches the rest of the
-  // BLAKE2b network, which it cannot do through the DNS seeds.
+  // P2P. Inbound peers on the BLAKE2b chain, and the route by which this node is
+  // reachable from outside the server at all. Outbound peer discovery does not
+  // need it: the DNS seeds answer this build's NODE_BLAKE2B service prefix with
+  // fork nodes.
   const peerMulti = sdk.MultiHost.of(effects, 'peer')
   const peerOrigin = await peerMulti.bindPort(peerPort, {
     protocol: null,
     addSsl: null,
     preferredExternalPort: peerPort,
-    // Plaintext by design: regtest P2P between two lab nodes. `secure: null`
-    // would make this bridge-only and unreachable from another machine.
+    // Plaintext by design: Bitcoin's p2p protocol has no TLS. `secure: null`
+    // would make this bridge-only and unreachable from another machine, which
+    // for a peer port means no inbound peers at all.
     secure: { ssl: false },
   })
   const peer = sdk.createInterface(effects, {
