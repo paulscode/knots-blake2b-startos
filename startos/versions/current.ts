@@ -43,7 +43,13 @@ const notes =
   'Chain health check that tells "no peers on the fork" apart from an ordinary ' +
   'sync, and its RPC proxy is a build that can parse a BLAKE2b block. The stock ' +
   'proxy cannot, and returns an IO error for every verbose block or transaction ' +
-  'lookup above block 961640.'
+  'lookup above block 961640. ' +
+  ' ' +
+  'Also fixes an interface export that could take RPC and peer down with it. A ' +
+  'read of bitcoin.conf that came back empty used to de-export every interface ' +
+  'at once, including the two that do not depend on that file, which every ' +
+  'dependent watches. Only the ZMQ and I2P exports need the file now, and an ' +
+  'empty read is treated as a gap rather than as data.'
 
 export const current = VersionInfo.of({
   version: '1.0.0:31',
