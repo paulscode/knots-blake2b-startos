@@ -56,10 +56,23 @@ export const manifest = setupManifest({
     // node still had. Verbosity 0 was unaffected, which is why indexing worked
     // and this looked like it only mattered later.
     //
-    // Carries PR #33. Swap back to the Start9 image once that lands upstream.
+    // Carries PR #33 and PR #34. #34 is two upstream defects rather than
+    // anything BLAKE2b-specific, and either one stops a pruned node's
+    // dependents dead:
+    //
+    //   - The witness check rejected any block whose coinbase commits to
+    //     witnesses the block does not carry. Blocks mined during SegWit
+    //     signalling have exactly that shape and are valid; mainnet 434499 is
+    //     the first. Every peer returns the same bytes, so every peer "failed",
+    //     and an indexer could never pass that height.
+    //   - The passthrough cookie was read once at startup. bitcoind writes a
+    //     new one every time it starts, so from this node's next restart the
+    //     proxy answered its dependents 401 forever.
+    //
+    // Swap back to the Start9 image once #33 and #34 land upstream.
     proxy: {
       source: {
-        dockerTag: 'paulscode/btc-rpc-proxy:v0.8.0-blake2b.1',
+        dockerTag: 'paulscode/btc-rpc-proxy:v0.8.0-blake2b.2',
       },
       arch: ['x86_64', 'aarch64'],
     },
