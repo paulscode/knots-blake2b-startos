@@ -19,7 +19,11 @@ export const seedFiles = sdk.setupOnInit(async (effects, kind) => {
 
   if (kind === 'install') {
     await bitcoinConfFile.merge(effects, {
-      zmqEnabled: true,
+      // Cleared rather than left unwritten, so a fresh install and one that
+      // upgraded into this version read the same. They did not: this seed runs on
+      // install only, so a fresh install had ZeroMQ on and exported two extra
+      // interfaces while an upgraded one had neither.
+      zmqEnabled: false,
       blockfilters: { blockfilterindex: true },
       dbcache: defaultDbcache(),
       dbbatchsize: defaultDbbatchsize(),
