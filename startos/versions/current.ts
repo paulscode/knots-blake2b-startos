@@ -1,32 +1,22 @@
 import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
 
 const notes =
-  'ZeroMQ is now off on a fresh install. Nothing changes for a node that is ' +
-  'already running: whatever it has now, it keeps. ' +
+  'ZeroMQ works now. The node is built with the ZeroMQ library it was ' +
+  'missing: since the setting appeared in 1.0.0:31 the node wrote the ' +
+  'zmqpubrawblock and zmqpubrawtx lines it was asked for and silently ' +
+  'ignored them, so nothing ever listened on the ZeroMQ ports this package ' +
+  'exports. bitcoin-cli getzmqnotifications answered "Method not found". ' +
   ' ' +
-  'WHY. ZeroMQ is a stream of block and transaction notifications, and it has ' +
-  'no password and no encryption of any kind. Anyone who can reach the port ' +
-  'gets the feed. That is fine for what it was built for, a program on the ' +
-  'same machine, and it is why Bitcoin itself ships it off. ' +
+  'WHO NEEDS IT. Lightning Fork subscribes to raw block and transaction ' +
+  'notifications over ZeroMQ, and until now had to fall back to polling this ' +
+  'node over RPC. With this release, and ZeroMQ Enabled under Actions and ' +
+  'Config, Other Settings, it can use the feed. Nothing else in this store ' +
+  'uses it, and it stays off by default, for the reason 1.0.0:33 gave: the ' +
+  'feed has no password, so it belongs on this machine only. ' +
   ' ' +
-  'It was on here, which meant every new install published two interfaces that ' +
-  'could be put on a public address. Somebody who accepted the defaults and ' +
-  'turned on a tunnel ended up exposing that feed to the internet without ' +
-  'choosing to. That is what prompted this. ' +
-  ' ' +
-  'NOTHING NEEDS IT. The Datum Gateway companion, the only service that ' +
-  'depends on this node, takes its work over RPC and has no ZeroMQ support at ' +
-  'all. Neither does Electrs Pruned or Mempool Pruned. If you have wired ' +
-  'something to it yourself, turn it back on under Actions and Config, Other ' +
-  'Settings, ZeroMQ Enabled. ' +
-  ' ' +
-  'It also settles a difference between two installs of the same version. The ' +
-  'setting was written once, at install, so a fresh install had ZeroMQ on and ' +
-  'showed two extra interfaces while one that updated into the same version ' +
-  'had neither. Both are off now.'
-
+  'Nothing changes for a node that keeps ZeroMQ off.'
 export const current = VersionInfo.of({
-  version: '1.0.0:33',
+  version: '1.0.0:34',
   releaseNotes: {
     en_US: notes,
     es_ES: notes,
@@ -35,9 +25,8 @@ export const current = VersionInfo.of({
     fr_FR: notes,
   },
   migrations: {
-    // Nothing to migrate. The change is what a fresh install is seeded with, so
-    // an existing node keeps the setting it already has and its dependents keep
-    // working. The 1.0.0:31 store migration stays with :31.
+    // Nothing to migrate: the change is in the binary. The 1.0.0:31 store
+    // migration stays with :31.
     up: async ({ effects }) => {},
     down: IMPOSSIBLE,
   },

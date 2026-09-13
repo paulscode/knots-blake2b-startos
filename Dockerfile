@@ -43,6 +43,11 @@
 # as of 2026-09-02. That is not a signature over anything this image downloads,
 # so it does not change what the build verifies; it does mean independent parties
 # have rebuilt this commit and agreed on the output.
+# ZeroMQ is compiled in (-DWITH_ZMQ=ON, libzmq): the package has offered a ZMQ
+# setting since 1.0.0:31 and dependents such as Lightning Fork subscribe to raw
+# block and transaction notifications over it, but until 1.0.10 the binary was
+# built without libzmq, so the zmqpub* lines it wrote were silently ignored and
+# `getzmqnotifications` did not exist. Check with `bitcoin-cli getzmqnotifications`.
 FROM debian:bookworm-slim AS build
 
 ARG KNOTS_REPO=https://github.com/bitcoinknots/bitcoin.git
@@ -50,7 +55,7 @@ ARG KNOTS_REF=8c85b1585dac23f964e2dd32045624de7f02aa58
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential cmake pkgconf python3 git ca-certificates \
-        libevent-dev libsqlite3-dev libboost-dev \
+        libevent-dev libsqlite3-dev libboost-dev libzmq3-dev \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /src
@@ -67,6 +72,7 @@ RUN cmake -B build \
         -DBUILD_BENCH=OFF \
         -DBUILD_FUZZ_BINARY=OFF \
         -DENABLE_WALLET=ON \
+        -DWITH_ZMQ=ON \
  && cmake --build build -j"$(nproc)" --target bitcoind bitcoin-cli \
  && strip build/bin/bitcoind build/bin/bitcoin-cli
 
@@ -86,7 +92,7 @@ FROM debian:bookworm-slim
 #                         extent and the database fragments badly.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         libevent-core-2.1-7 libevent-extra-2.1-7 libevent-pthreads-2.1-7 \
-        libsqlite3-0 wget curl e2fsprogs \
+        libsqlite3-0 libzmq5 wget curl e2fsprogs \
     && rm -rf /var/lib/apt/lists/* \
     && useradd -r -m -d /data -u 1000 bitcoin
 
