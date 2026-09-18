@@ -1,22 +1,25 @@
 import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
 
 const notes =
-  'ZeroMQ works now. The node is built with the ZeroMQ library it was ' +
-  'missing: since the setting appeared in 1.0.0:31 the node wrote the ' +
-  'zmqpubrawblock and zmqpubrawtx lines it was asked for and silently ' +
-  'ignored them, so nothing ever listened on the ZeroMQ ports this package ' +
-  'exports. bitcoin-cli getzmqnotifications answered "Method not found". ' +
+  'Updates the RPC proxy this node runs to upstream 0.8.1. ' +
   ' ' +
-  'WHO NEEDS IT. Lightning Fork subscribes to raw block and transaction ' +
-  'notifications over ZeroMQ, and until now had to fall back to polling this ' +
-  'node over RPC. With this release, and ZeroMQ Enabled under Actions and ' +
-  'Config, Other Settings, it can use the feed. Nothing else in this store ' +
-  'uses it, and it stays off by default, for the reason 1.0.0:33 gave: the ' +
-  'feed has no password, so it belongs on this machine only. ' +
+  'The two defects this package carried a patched proxy for are now fixed ' +
+  'upstream, in Start9 btc-rpc-proxy 0.8.1, so this build is their 0.8.1 with ' +
+  'one patch on top rather than their 0.8.0 with three. Both defects stopped ' +
+  'anything depending on this node: a block mined during SegWit signalling ' +
+  'was refused as malformed, which pinned a pruned index at mainnet 434,499 ' +
+  'forever, and the RPC cookie was read once at startup, so from this node\'s ' +
+  'next restart its dependents were answered 401 and nothing said why. ' +
   ' ' +
-  'Nothing changes for a node that keeps ZeroMQ off.'
+  'The remaining patch is BLAKE2b header support, which is still open ' +
+  'upstream as PR #33. Without it the proxy cannot parse a 164-byte header, ' +
+  'and every verbose getblock above 961640 fails on a block this node still ' +
+  'holds. ' +
+  ' ' +
+  'Nothing changes in how the node behaves. This is the proxy beside it.'
+
 export const current = VersionInfo.of({
-  version: '1.0.0:34',
+  version: '1.0.0:35',
   releaseNotes: {
     en_US: notes,
     es_ES: notes,

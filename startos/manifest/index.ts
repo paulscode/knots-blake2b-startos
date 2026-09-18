@@ -48,16 +48,19 @@ export const manifest = setupManifest({
     // main.ts.
     //
     // OUR BUILD, not `ghcr.io/start9labs/btc-rpc-proxy`, and this is the one
-    // image substitution that is load-bearing rather than cosmetic. Stock v0.8.0
-    // cannot parse a 164-byte BLAKE2b header, and it parses the block for any
+    // image substitution that is load-bearing rather than cosmetic. The stock image
+    // still cannot parse a 164-byte BLAKE2b header at v0.8.1, and it parses the block for any
     // request it intercepts, not only one it had to fetch from peers. So every
     // verbose `getblock` and every intercepted `getrawtransaction` above block
     // 961640 returned "IO error: failed to fill whole buffer", on blocks this
     // node still had. Verbosity 0 was unaffected, which is why indexing worked
     // and this looked like it only mattered later.
     //
-    // Carries PR #33 and PR #34. #34 is two upstream defects rather than
-    // anything BLAKE2b-specific, and either one stops a pruned node's
+    // Carries PR #33, which is the BLAKE2b header support and is still open.
+    //
+    // PR #34 has landed: it is in upstream v0.8.1, so this image is now v0.8.1
+    // plus #33 rather than v0.8.0 plus both. #34 was two upstream defects rather
+    // than anything BLAKE2b-specific, and either one stopped a pruned node's
     // dependents dead:
     //
     //   - The witness check rejected any block whose coinbase commits to
@@ -69,10 +72,11 @@ export const manifest = setupManifest({
     //     new one every time it starts, so from this node's next restart the
     //     proxy answered its dependents 401 forever.
     //
-    // Swap back to the Start9 image once #33 and #34 land upstream.
+    // Swap back to the Start9 image once #33 lands upstream. Nothing else keeps
+    // us off it now.
     proxy: {
       source: {
-        dockerTag: 'paulscode/btc-rpc-proxy:v0.8.0-blake2b.2',
+        dockerTag: 'paulscode/btc-rpc-proxy:v0.8.1-blake2b.1',
       },
       arch: ['x86_64', 'aarch64'],
     },
