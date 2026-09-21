@@ -12,7 +12,7 @@ the trust model is a pinned SHA rather than a signer quorum.
 
 ```dockerfile
 ARG KNOTS_REPO=https://github.com/bitcoinknots/bitcoin.git
-ARG KNOTS_REF=11a817a964292fb0354d08c1c6bb8e12b671d274
+ARG KNOTS_REF=58398baf33e588779685ead478e6397bb28ed3d6
 ```
 
 It is deliberately **not** a `buildArg` in `startos/manifest/index.ts`. It used to be
@@ -31,7 +31,7 @@ revisions between package versions.
 ```bash
 git ls-remote --tags https://github.com/bitcoinknots/bitcoin.git 'v29.*knots*'
 # then resolve the one you want to a SHA
-git rev-parse v29.4.2.knots20260508rc2^{commit}
+git rev-parse v29.4.2.knots20260508^{commit}
 ```
 
 Choosing a tag is a consensus decision, not a routine bump. What matters:

@@ -2,23 +2,23 @@
 #
 # Pinned by commit, never by branch: a floating build would silently cross
 # consensus revisions (PLAN section 8). The commit below is the tag
-# v29.4.2.knots20260508rc2, recorded as a SHA because a tag can be moved and a
-# SHA cannot.
+# v29.4.2.knots20260508, the final release rather than a candidate, recorded as
+# a SHA because a tag can be moved and a SHA cannot.
 #
-# THIS IS A RELEASE CANDIDATE, which the pin above this line was not. It is here
-# because it carries the temporary long coinbase maturity rule
+# This release carries the temporary long coinbase maturity rule
 # (bitcoinknots/bitcoin#419), which begins being enforced at mainnet height
-# 973440, and that pull request was still open with no release tag carrying it.
-# A node that has not taken this rule will accept blocks that upgraded nodes
-# reject, so staying on the previous pin past that height is its own risk.
+# 973440. The pull request is still open on GitHub; the release merges it
+# anyway, as "Merge k419 via tsf_longmaturity".
 #
 # Both checks UPDATING.md asks for were run against this commit: mainnet's
 # Blake2bHeight is still 961640, and the mainnet headline is still hardcoded in
-# CMainParams rather than demoted to an option. Unlike the earlier rc2 and rc3
-# named below, this one has no mainnet guard in init.cpp.
+# CMainParams rather than demoted to an option.
 #
-# Repin to the final release as soon as one exists. The heights in #419 moved
-# once already.
+# It also carries #420, which renames the RPC "difficulty" field to
+# "difficulty_blake2b" and omits the old one for header-v2 blocks, meaning every
+# block on this chain. Anything downstream reading "difficulty" off getblock,
+# getblockheader, getblockchaininfo or getmininginfo gets nothing from this
+# build onwards.
 #
 # This image serves a mainnet node, and as of 1.0.0:30 that is the only chain the
 # package offers. rc2 and rc3 refused ChainType::MAIN outright at init.cpp ("This
@@ -47,17 +47,20 @@
 # is set with it. Writing an option the node ignores would only invite someone to
 # change it and expect an effect.
 #
-# There are no published binaries for this tag yet: bitcoinknots.org and the
-# GitHub releases page both stop at 29.4.knots20260508, so there is no artifact
-# and no detached signature to check. Building from source here trades the
-# signed-release trust model for a pinned git commit, which is a real reduction
-# in assurance and is stated in the README.
+# There are no published binaries for this tag: bitcoinknots.org has a directory
+# for 29.4.2.knots20260508 but it holds only a test/ folder, and GitHub has no
+# release object for it at all. So there is no artifact and no detached signature
+# to check. Building from source here trades the signed-release trust model for a
+# pinned git commit, which is a real reduction in assurance and is stated in the
+# README.
 #
-# Unlike the candidates this package pinned before, the tag does carry
-# reproducible-build attestations in bitcoinknots/guix.sigs, from four builders
-# as of 2026-09-02. That is not a signature over anything this image downloads,
-# so it does not change what the build verifies; it does mean independent parties
-# have rebuilt this commit and agreed on the output.
+# This tag also has no reproducible-build attestations yet. bitcoinknots/guix.sigs
+# carries them for 29.4.2.knots20260508rc1 and rc2 but not for the final, so
+# pinning the release rather than rc2 gives up independent rebuilds having agreed
+# on the output. That is a deliberate trade: the consensus code is identical
+# between rc2 and the final (same heights, same rules), and running a candidate
+# when a release exists is its own cost. Re-check guix.sigs and say so here once
+# attestations appear.
 # ZeroMQ is compiled in (-DWITH_ZMQ=ON, libzmq): the package has offered a ZMQ
 # setting since 1.0.0:31 and dependents such as Lightning Fork subscribe to raw
 # block and transaction notifications over it, but until 1.0.10 the binary was
@@ -66,7 +69,7 @@
 FROM debian:bookworm-slim AS build
 
 ARG KNOTS_REPO=https://github.com/bitcoinknots/bitcoin.git
-ARG KNOTS_REF=11a817a964292fb0354d08c1c6bb8e12b671d274
+ARG KNOTS_REF=58398baf33e588779685ead478e6397bb28ed3d6
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential cmake pkgconf python3 git ca-certificates \

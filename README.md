@@ -50,7 +50,7 @@ Verified: this package runs on a box with `bitcoind` and `datum` already install
 ## Upstream
 
 Built from a **pinned commit**, never a branch: `bitcoinknots/bitcoin` @
-`11a817a964292fb0354d08c1c6bb8e12b671d274`, the tag `v29.4.2.knots20260508rc2`.
+`58398baf33e588779685ead478e6397bb28ed3d6`, the tag `v29.4.2.knots20260508`.
 Recorded as a SHA because a tag can be moved and a SHA cannot. The BLAKE2b change is
 [bitcoinknots/bitcoin#359](https://github.com/bitcoinknots/bitcoin/pull/359); the
 opt-in signature hash that gives replay protection is
@@ -58,9 +58,14 @@ opt-in signature hash that gives replay protection is
 maturity rule this pin was taken for is
 [#419](https://github.com/bitcoinknots/bitcoin/pull/419).
 
-This pin is a **release candidate**, which previous pins were not. #419 was still an
-open pull request with no release tag carrying it, and its rule begins being enforced
-at mainnet height 973440. Repin to the final release when one exists.
+#419 is still an open pull request on GitHub; this release merges it anyway, as
+"Merge k419 via tsf_longmaturity". Its rule begins being enforced at mainnet height
+973440.
+
+Unlike the rc2 this package briefly pinned, the final tag has **no reproducible-build
+attestations** in `bitcoinknots/guix.sigs` yet, and no published binaries or
+signatures. The consensus code is identical between the two, so this is a trade of
+independent-rebuild assurance against not running a candidate. Re-check guix.sigs.
 
 **The pin lives in exactly one place: the `KNOTS_REF` ARG default in the
 [Dockerfile](Dockerfile).** It is deliberately not set as a `buildArg` in

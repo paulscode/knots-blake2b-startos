@@ -109,7 +109,12 @@ export type GetBlockchainInfo = {
   blocks: number
   headers: number
   bestblockhash: string
-  difficulty: number
+  // Both optional since 29.4.2.knots20260508 (#420): the node reports
+  // difficulty_blake2b for header-v2 blocks, which is every block on this chain,
+  // and omits difficulty entirely. Nothing here reads either, but a required
+  // field that is never present is a lie the next reader would believe.
+  difficulty?: number
+  difficulty_blake2b?: number
   mediantime: number
   verificationprogress: number
   initialblockdownload: boolean
