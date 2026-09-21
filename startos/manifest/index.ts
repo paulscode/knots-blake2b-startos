@@ -76,7 +76,7 @@ export const manifest = setupManifest({
     // us off it now.
     proxy: {
       source: {
-        dockerTag: 'paulscode/btc-rpc-proxy:v0.8.1-blake2b.1',
+        dockerTag: 'paulscode/btc-rpc-proxy:v0.8.1-blake2b.2',
       },
       arch: ['x86_64', 'aarch64'],
     },
