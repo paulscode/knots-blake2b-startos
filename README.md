@@ -50,11 +50,17 @@ Verified: this package runs on a box with `bitcoind` and `datum` already install
 ## Upstream
 
 Built from a **pinned commit**, never a branch: `bitcoinknots/bitcoin` @
-`8c85b1585dac23f964e2dd32045624de7f02aa58`, the tag `v29.4.1.knots20260508`. Recorded
-as a SHA because a tag can be moved and a SHA cannot. The BLAKE2b change is
+`11a817a964292fb0354d08c1c6bb8e12b671d274`, the tag `v29.4.2.knots20260508rc2`.
+Recorded as a SHA because a tag can be moved and a SHA cannot. The BLAKE2b change is
 [bitcoinknots/bitcoin#359](https://github.com/bitcoinknots/bitcoin/pull/359); the
 opt-in signature hash that gives replay protection is
-[#357](https://github.com/bitcoinknots/bitcoin/pull/357).
+[#357](https://github.com/bitcoinknots/bitcoin/pull/357); the temporary long coinbase
+maturity rule this pin was taken for is
+[#419](https://github.com/bitcoinknots/bitcoin/pull/419).
+
+This pin is a **release candidate**, which previous pins were not. #419 was still an
+open pull request with no release tag carrying it, and its rule begins being enforced
+at mainnet height 973440. Repin to the final release when one exists.
 
 **The pin lives in exactly one place: the `KNOTS_REF` ARG default in the
 [Dockerfile](Dockerfile).** It is deliberately not set as a `buildArg` in

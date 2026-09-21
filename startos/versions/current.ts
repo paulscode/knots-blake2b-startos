@@ -1,25 +1,29 @@
 import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
 
 const notes =
-  'Updates the RPC proxy this node runs to upstream 0.8.1. ' +
+  'Updates Bitcoin Knots to the build carrying the temporary long coinbase ' +
+  'maturity rule. ' +
   ' ' +
-  'The two defects this package carried a patched proxy for are now fixed ' +
-  'upstream, in Start9 btc-rpc-proxy 0.8.1, so this build is their 0.8.1 with ' +
-  'one patch on top rather than their 0.8.0 with three. Both defects stopped ' +
-  'anything depending on this node: a block mined during SegWit signalling ' +
-  'was refused as malformed, which pinned a pruned index at mainnet 434,499 ' +
-  'forever, and the RPC cookie was read once at startup, so from this node\'s ' +
-  'next restart its dependents were answered 401 and nothing said why. ' +
+  'Newly mined coins now need 6480 confirmations before they can be spent, ' +
+  'roughly 45 days at a ten minute block target, where the old wait was 100 ' +
+  'blocks. The consensus rule begins being enforced at block 973440. ' +
   ' ' +
-  'The remaining patch is BLAKE2b header support, which is still open ' +
-  'upstream as PR #33. Without it the proxy cannot parse a 164-byte header, ' +
-  'and every verbose getblock above 961640 fails on a block this node still ' +
-  'holds. ' +
+  'This also affects coins you have already mined. Nodes require the longer ' +
+  'wait of every coinbase spend they will relay, whatever height the coin was ' +
+  'mined at, so a payout from the last 45 days that was spendable before this ' +
+  'update will not be spendable after it. Nothing is lost; the wait is longer. ' +
   ' ' +
-  'Nothing changes in how the node behaves. This is the proxy beside it.'
+  'This build is a release candidate, v29.4.2.knots20260508rc2, rather than a ' +
+  'final release. No final release carries the rule yet, and a node without it ' +
+  'will accept blocks that updated nodes reject. Update again when a final ' +
+  'release ships. ' +
+  ' ' +
+  'If you update after your node has already passed block 973440, it rewinds ' +
+  'and revalidates the blocks from that height before it is usable again, ' +
+  'which takes a while. Updating before that height avoids the rewind.'
 
 export const current = VersionInfo.of({
-  version: '1.0.0:35',
+  version: '1.0.0:36',
   releaseNotes: {
     en_US: notes,
     es_ES: notes,

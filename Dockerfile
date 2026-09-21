@@ -2,8 +2,23 @@
 #
 # Pinned by commit, never by branch: a floating build would silently cross
 # consensus revisions (PLAN section 8). The commit below is the tag
-# v29.4.1.knots20260508, the final release rather than a candidate, recorded as
-# a SHA because a tag can be moved and a SHA cannot.
+# v29.4.2.knots20260508rc2, recorded as a SHA because a tag can be moved and a
+# SHA cannot.
+#
+# THIS IS A RELEASE CANDIDATE, which the pin above this line was not. It is here
+# because it carries the temporary long coinbase maturity rule
+# (bitcoinknots/bitcoin#419), which begins being enforced at mainnet height
+# 973440, and that pull request was still open with no release tag carrying it.
+# A node that has not taken this rule will accept blocks that upgraded nodes
+# reject, so staying on the previous pin past that height is its own risk.
+#
+# Both checks UPDATING.md asks for were run against this commit: mainnet's
+# Blake2bHeight is still 961640, and the mainnet headline is still hardcoded in
+# CMainParams rather than demoted to an option. Unlike the earlier rc2 and rc3
+# named below, this one has no mainnet guard in init.cpp.
+#
+# Repin to the final release as soon as one exists. The heights in #419 moved
+# once already.
 #
 # This image serves a mainnet node, and as of 1.0.0:30 that is the only chain the
 # package offers. rc2 and rc3 refused ChainType::MAIN outright at init.cpp ("This
@@ -51,7 +66,7 @@
 FROM debian:bookworm-slim AS build
 
 ARG KNOTS_REPO=https://github.com/bitcoinknots/bitcoin.git
-ARG KNOTS_REF=8c85b1585dac23f964e2dd32045624de7f02aa58
+ARG KNOTS_REF=11a817a964292fb0354d08c1c6bb8e12b671d274
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         build-essential cmake pkgconf python3 git ca-certificates \
