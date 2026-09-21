@@ -54,13 +54,14 @@
 # pinned git commit, which is a real reduction in assurance and is stated in the
 # README.
 #
-# This tag also has no reproducible-build attestations yet. bitcoinknots/guix.sigs
-# carries them for 29.4.2.knots20260508rc1 and rc2 but not for the final, so
-# pinning the release rather than rc2 gives up independent rebuilds having agreed
-# on the output. That is a deliberate trade: the consensus code is identical
-# between rc2 and the final (same heights, same rules), and running a candidate
-# when a release exists is its own cost. Re-check guix.sigs and say so here once
-# attestations appear.
+# Reproducible-build attestations for this tag exist in bitcoinknots/guix.sigs,
+# from chrisguida, luke-jr and mhr6091 as of 2026-09-21. They did not when this
+# pin was taken, which is recorded because the trade was made without them: the
+# consensus code is identical between rc2 and the final, and running a candidate
+# when a release exists is its own cost. Fewer builders than rc2's five, so worth
+# another look if that matters to you. This is not a signature over anything this
+# image downloads, so it does not change what the build verifies; it does mean
+# independent parties have rebuilt this commit and agreed on the output.
 # ZeroMQ is compiled in (-DWITH_ZMQ=ON, libzmq): the package has offered a ZMQ
 # setting since 1.0.0:31 and dependents such as Lightning Fork subscribe to raw
 # block and transaction notifications over it, but until 1.0.10 the binary was

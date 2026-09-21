@@ -62,10 +62,10 @@ maturity rule this pin was taken for is
 "Merge k419 via tsf_longmaturity". Its rule begins being enforced at mainnet height
 973440.
 
-Unlike the rc2 this package briefly pinned, the final tag has **no reproducible-build
-attestations** in `bitcoinknots/guix.sigs` yet, and no published binaries or
-signatures. The consensus code is identical between the two, so this is a trade of
-independent-rebuild assurance against not running a candidate. Re-check guix.sigs.
+The final tag has **no published binaries or signatures**, so the trust model here is
+a pinned commit rather than a signed artifact. It does now carry reproducible-build
+attestations in `bitcoinknots/guix.sigs`, from three builders as of 2026-09-21; it
+carried none when this pin was taken.
 
 **The pin lives in exactly one place: the `KNOTS_REF` ARG default in the
 [Dockerfile](Dockerfile).** It is deliberately not set as a `buildArg` in
