@@ -18,9 +18,18 @@ const notes =
   'will accept blocks that updated nodes reject. Update again when a final ' +
   'release ships. ' +
   ' ' +
-  'If you update after your node has already passed block 973440, it rewinds ' +
-  'and revalidates the blocks from that height before it is usable again, ' +
-  'which takes a while. Updating before that height avoids the rewind.'
+  'Update before your node reaches block 973440 if you can. A node running ' +
+  'this build from before that height checks the new rule as it goes and never ' +
+  'has to look back. ' +
+  ' ' +
+  'A node updated after it has passed 973440 has to rewind to that block and ' +
+  'recheck everything since, which takes a while and needs the block data for ' +
+  'that stretch still on disk. This app prunes, so that data does not stay ' +
+  'forever. At the default pruning size there is plenty of room, but if you ' +
+  'have set pruning low and update long after 973440, the node can refuse to ' +
+  'start and report that required block data has been pruned. Recovering from ' +
+  'that means downloading the chain again. Updating promptly avoids the ' +
+  'question entirely.'
 
 export const current = VersionInfo.of({
   version: '1.0.0:36',

@@ -74,9 +74,15 @@ Wallet** to point those at a particular wallet.
 StartOS backups switched on. A block you mine pays its whole subsidy to a key this
 node holds and nothing else does.
 
-**Freshly mined coins need 100 more blocks before they can be spent.** If you have
-just found your first block, Get Balance shows it as immature for about a day. That
-is normal, not a fault.
+**Freshly mined coins cannot be spent straight away.** The wait used to be 100
+blocks, about 16 hours. The chain has deployed a temporary longer one: 6480 blocks,
+roughly 45 days at a ten minute block target. Get Balance reports those coins under
+`immature` until the wait is over. That is normal, not a fault.
+
+The longer rule applies to coins mined before it as well as after it, so a payout
+that was spendable before this node took the rule is not spendable after it. Nothing
+is lost; the wait is longer. The rule is temporary and is being extended further, so
+check the release notes rather than assuming this figure.
 
 For anything beyond occasional use, a wallet like Sparrow (BLAKE2b) pointed at this
 node is a better place to keep keys than the node itself.
