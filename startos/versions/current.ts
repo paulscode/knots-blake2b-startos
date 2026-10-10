@@ -44,6 +44,9 @@ export const current = VersionInfo.of({
     fr_FR: notes,
   },
   migrations: {
+    // MOVE THIS TO v1_0_0_38.ts WHEN :39 STARTS. Every upgrade into `current` runs
+    // its migration, so left here it would run again on :39 and later, and undo a
+    // `notransit = false` or bandwidth class the user set after :38.
     up: async ({ effects }) => {
       // Move the i2pd router off the two old shipped defaults, once: the 'L'
       // bandwidth class, and relaying transit for other I2P users. A hand-set
