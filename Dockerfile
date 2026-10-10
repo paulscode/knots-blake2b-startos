@@ -56,11 +56,10 @@
 # tarballs is a decision not yet made. Stated in the README.
 #
 # Reproducible-build attestations for this tag exist in bitcoinknots/guix.sigs,
-# from chrisguida, luke-jr and mhr6091 as of 2026-09-21. They did not when this
-# pin was taken, which is recorded because the trade was made without them: the
-# consensus code is identical between rc2 and the final, and running a candidate
-# when a release exists is its own cost. Fewer builders than rc2's five, so worth
-# another look if that matters to you. This is not a signature over anything this
+# from seven builders as of 2026-10-10 (bitcoinmechanic, chrisguida, innerhat-dev,
+# kwsantiago, leo-haf, luke-jr, mhr6091). They did not when this pin was taken,
+# which is recorded because the trade was made without them: the consensus code is
+# identical between rc2 and the final. This is not a signature over anything this
 # image downloads, so it does not change what the build verifies; it does mean
 # independent parties have rebuilt this commit and agreed on the output.
 # ZeroMQ is compiled in (-DWITH_ZMQ=ON, libzmq): the package has offered a ZMQ

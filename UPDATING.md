@@ -1,10 +1,11 @@
 # Updating the upstream version
 
 Upstream is **built from source**, not a published image or a signed release tarball.
-There is no BLAKE2b release to track: `bitcoinknots.org/files/29.x/` stops at
-`29.4.knots20260508`, and the BLAKE2b tags have no GitHub release, so no artifacts and
-no detached `SHA256SUMS.asc` exist. So "the upstream version" here is a git commit, and
-the trust model is a pinned SHA rather than a signer quorum.
+When this was set up there was no BLAKE2b release to track. There is one now: since
+2026-09-21 the tag has a GitHub release and `test.bitcoinknots.org` serves tarballs with
+`SHA256SUMS` and `SHA256SUMS.asc`. This package has not switched to them (see the
+README), so "the upstream version" here is still a git commit, and the trust model is a
+pinned SHA rather than a signer quorum.
 
 ## Where the pin lives
 

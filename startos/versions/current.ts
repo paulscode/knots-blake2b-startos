@@ -5,13 +5,13 @@ const notes =
   'Brings in the fixes Start9 has made to its own Bitcoin package since this ' +
   'one was built from it, and a newer RPC proxy. ' +
   ' ' +
-  'The bundled I2P router now carries only this node\'s traffic. It used to ' +
-  'relay up to 32 KB/s for other I2P users by default, in i2pd\'s lowest ' +
+  "The bundled I2P router now carries only this node's traffic. It used to " +
+  "relay up to 32 KB/s for other I2P users by default, in i2pd's lowest " +
   'bandwidth class, where a router behind a home connection rarely gets its ' +
   'address publication confirmed in time. Relaying is now off and the class is ' +
   'raised to O, which costs nothing once relaying is off. Both changes are made ' +
   'once, even over values you set by hand; afterwards anything you set in ' +
-  'i2pd.conf sticks, including turning relaying back on. The router\'s routine ' +
+  "i2pd.conf sticks, including turning relaying back on. The router's routine " +
   'network chatter is also filtered out of the service log, which it used to ' +
   'fill at about 25 lines a minute. ' +
   ' ' +
@@ -24,7 +24,8 @@ const notes =
   'Restore Wallet no longer reports a failure after 30 seconds while the ' +
   'restore carries on in the background. Peer Settings refuses to turn off ' +
   'the I2P proxy while Onlynet is limited to i2p alone, which would leave the ' +
-  'node unable to connect. ' +
+  "node unable to connect. Backups now include the I2P router's identity file, " +
+  'so a restore no longer starts I2P with a burst of parse errors. ' +
   ' ' +
   'The RPC proxy moves to 0.8.2. It answers JSON-RPC 2.0 requests in 2.0 and ' +
   'returns batched replies in the order they were asked, and a block it fetches ' +

@@ -81,7 +81,7 @@ in the Dockerfile and nowhere else. See [UPDATING.md](UPDATING.md).
 `bitcoinknots.org` and the GitHub releases page both stopped at `29.4.knots20260508`.
 Signed tarballs have since appeared (see above), but this image still builds from
 source, which trades the signed-release trust model for a pinned git commit. The tag does carry reproducible-build
-attestations in `bitcoinknots/guix.sigs` from four builders, which is not a signature
+attestations in `bitcoinknots/guix.sigs` from seven builders, which is not a signature
 over anything this image downloads but does mean independent parties rebuilt this
 commit and agreed on the output.
 
@@ -206,11 +206,13 @@ behind it on loopback 58443. The proxy answers for blocks this node has dropped 
 fetching them from peers and validating them against this node, so a dependent sees a
 node that behaves as though it were archival, with no change on its side.
 
-The image is `paulscode/btc-rpc-proxy:v0.8.0-blake2b.2`, carrying
-[PR #33](https://github.com/Start9Labs/btc-rpc-proxy/pull/33) and
-[PR #34](https://github.com/Start9Labs/btc-rpc-proxy/pull/34). #34 is two upstream
-defects rather than anything BLAKE2b-specific, and either one stops a pruned node's
-dependents dead: the witness check rejected blocks mined during SegWit signalling,
+The image is `paulscode/btc-rpc-proxy:v0.8.2-blake2b.1`: upstream v0.8.2 with
+[PR #33](https://github.com/Start9Labs/btc-rpc-proxy/pull/33) (BLAKE2b headers), an
+optional `difficulty` field (this chain's Knots reports `difficulty_blake2b` for v2
+headers), and a single flight so concurrent requests for one pruned block share a
+fetch. Upstream v0.8.1 took [PR #34](https://github.com/Start9Labs/btc-rpc-proxy/pull/34),
+which the v0.8.0 line had to carry. #34 is two upstream defects rather than anything
+BLAKE2b-specific, and either one stopped a pruned node's dependents dead: the witness check rejected blocks mined during SegWit signalling,
 whose coinbase commits to witnesses they do not carry (mainnet 434499 is the first,
 and every peer returns the same bytes, so every peer "failed"); and the passthrough
 cookie was read once at startup, so from this node's next restart the proxy answered
@@ -264,10 +266,9 @@ Four things were kept rather than taken from upstream, and each is load-bearing:
 - **The `chain` health check.** Upstream has no counterpart, and without it a node
   with no peers on this side of the split looks like a node that is merely syncing
   slowly. See below.
-- **`paulscode/btc-rpc-proxy:v0.8.0-blake2b.2`** rather than the Start9 image. Stock
-  v0.8.0 cannot parse a 164-byte BLAKE2b header, stalls every pruned block fetch at
-  mainnet block 434499, and stops accepting its dependents' credentials as soon as
-  this node restarts.
+- **`paulscode/btc-rpc-proxy:v0.8.2-blake2b.1`** rather than the Start9 image. Stock
+  v0.8.2 cannot parse a 164-byte BLAKE2b header, and requires a `difficulty` field this
+  node no longer reports for v2 blocks.
 - **Pruned by default**, where upstream is archival unless the disk is small.
 - **Ports 18443/18444/18445.** Upstream uses 8332/8333, which would collide with the
   official package on the one server layout this exists for, and which two dependents
