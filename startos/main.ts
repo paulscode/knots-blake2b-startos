@@ -483,8 +483,10 @@ export const main = sdk.setupMain(async ({ effects }) => {
             return {
               result: 'loading' as const,
               message: info.headers
-                ? i18n('Syncing block headers: ${count}', {
-                    count: info.headers,
+                ? // A string, not the number: SDK 2.0.9's i18n formats a number
+                  // with Intl in the container's locale, which is C, and throws.
+                  i18n('Syncing block headers: ${count}', {
+                    count: String(info.headers),
                   })
                 : i18n('Syncing block headers…'),
             }
