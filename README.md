@@ -62,10 +62,14 @@ maturity rule this pin was taken for is
 "Merge k419 via tsf_longmaturity". Its rule begins being enforced at mainnet height
 973440.
 
-The final tag has **no published binaries or signatures**, so the trust model here is
-a pinned commit rather than a signed artifact. It does now carry reproducible-build
-attestations in `bitcoinknots/guix.sigs`, from three builders as of 2026-09-21; it
-carried none when this pin was taken.
+This package builds the final tag **from source**, so the trust model here is a pinned
+commit rather than a signed artifact. When the pin was taken there were no published
+binaries or signatures. That has changed: as of 2026-10-10 GitHub has a release object
+for the tag (dated 2026-09-21), `test.bitcoinknots.org/files/29.x/29.4.2.knots20260508/`
+serves release tarballs with `SHA256SUMS` and `SHA256SUMS.asc`, and the tag carries
+reproducible-build attestations in `bitcoinknots/guix.sigs`. Switching to the signed
+tarballs (as Retropex's POW package does) is a trust-model decision that has not been
+made; the build here is unchanged.
 
 **The pin lives in exactly one place: the `KNOTS_REF` ARG default in the
 [Dockerfile](Dockerfile).** It is deliberately not set as a `buildArg` in
@@ -73,10 +77,10 @@ carried none when this pin was taken.
 build silently fetched an orphaned commit while the Dockerfile said otherwise. Bump it
 in the Dockerfile and nowhere else. See [UPDATING.md](UPDATING.md).
 
-**There is no signed release for this tag.** `bitcoinknots.org` and the GitHub releases
-page both stop at `29.4.knots20260508`, so there are no artifacts and no detached
-signature. Building from source trades the signed-release trust model for a pinned git
-commit, which is a real reduction in assurance. The tag does carry reproducible-build
+**This image does not use the signed release for this tag.** When the pin was taken,
+`bitcoinknots.org` and the GitHub releases page both stopped at `29.4.knots20260508`.
+Signed tarballs have since appeared (see above), but this image still builds from
+source, which trades the signed-release trust model for a pinned git commit. The tag does carry reproducible-build
 attestations in `bitcoinknots/guix.sigs` from four builders, which is not a signature
 over anything this image downloads but does mean independent parties rebuilt this
 commit and agreed on the output.
@@ -285,6 +289,16 @@ assurance and is stated under Upstream above rather than glossed.
   it decided, read that file.
 - Health check is `checkPortListening` on the RPC port. "The node is not accepting RPC
   yet" during startup is normal; persisting past a minute is not.
+- **Blockchain Sync** and **Index Sync** share one probe (`probe` in `main.ts`): a
+  node still warming up reads `starting` with bitcoind's own step (error -28's message),
+  and a call that cannot run reads `failure`. Index Sync is `getindexinfo`, reporting
+  the furthest-behind enabled index. Both came from Start9's bitcoin-core-startos in
+  1.0.0:38 (#287/#289), with `requires` pointed at `node`.
+- **I2P log lines** are filtered by `startos/i2pdLogFilter.ts`, which drops i2pd's
+  known routine network-weather messages and prefixes the rest `[i2pd]`. Unknown
+  messages always pass. Its tests run with `npm test`, which needs Node 22.6 or later
+  (`--experimental-strip-types`); `npm run check` stays type-only so a release build
+  on an older Node still works.
 
 ## Build
 

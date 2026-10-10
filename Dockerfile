@@ -47,12 +47,13 @@
 # is set with it. Writing an option the node ignores would only invite someone to
 # change it and expect an effect.
 #
-# There are no published binaries for this tag: bitcoinknots.org has a directory
-# for 29.4.2.knots20260508 but it holds only a test/ folder, and GitHub has no
-# release object for it at all. So there is no artifact and no detached signature
-# to check. Building from source here trades the signed-release trust model for a
-# pinned git commit, which is a real reduction in assurance and is stated in the
-# README.
+# When this pin was taken there were no published binaries for this tag:
+# bitcoinknots.org had a directory for 29.4.2.knots20260508 holding only a test/
+# folder, and GitHub had no release object. Both have since appeared (as of
+# 2026-10-10: a GitHub release dated 2026-09-21, and tarballs with SHA256SUMS.asc
+# under test.bitcoinknots.org). This image still builds from source, which trades
+# the signed-release trust model for a pinned git commit; switching to the signed
+# tarballs is a decision not yet made. Stated in the README.
 #
 # Reproducible-build attestations for this tag exist in bitcoinknots/guix.sigs,
 # from chrisguida, luke-jr and mhr6091 as of 2026-09-21. They did not when this

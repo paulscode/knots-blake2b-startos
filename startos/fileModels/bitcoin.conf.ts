@@ -312,7 +312,8 @@ export const fullConfigSpec = sdk.InputSpec.of({
     name: i18n('Reject Tokens'),
     description: i18n('Reject tokens transactions (runes)'),
     default: null,
-    footnote: `${i18n('Default')}: false`,
+    // Knots' DEFAULT_REJECT_TOKENS is true at the pinned tag (src/policy/policy.h).
+    footnote: `${i18n('Default')}: true`,
   }),
   mempoolreplacement: Value.select({
     name: i18n('Mempool Replacement'),

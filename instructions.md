@@ -27,10 +27,14 @@ behaves as though it kept everything.
 
 ## What "working" looks like
 
-Three health checks tell you where you stand.
+Four health checks tell you where you stand.
 
-**RPC** says the node is answering. **Blockchain Sync** is the percentage. **Chain**
-says which chain it is actually on, and that is the one to read:
+**RPC** says the node is answering. **Blockchain Sync** is the percentage, and while
+the node starts it shows what it is doing, such as loading the block index or
+replaying blocks after an unclean shutdown. **Index Sync** shows progress while an
+index you turned on (transaction index, coinstats, block filters) is being built, and
+says nothing is enabled otherwise. **Chain** says which chain it is actually on, and
+that is the one to read:
 
 | It says | It means |
 |---|---|

@@ -419,6 +419,18 @@ export default {
     3110: 'Syncing',
     3111: 'Stalled just below the BLAKE2b activation height, which means this node has no peers on the fork. It normally finds them through the DNS seeds. Add one directly under Peers if your network blocks DNS.',
     3112: 'Before the BLAKE2b activation',
+    // ported from knots-sha256 / upstream bitcoin-core-startos (1.0.0:38)
+    3113: 'Configuración de pares no válida',
+    3114: 'Onlynet está restringido a i2p, así que desactivar el proxy SAM de I2P dejaría al nodo sin ninguna forma de conectarse. Añade otra red a Onlynet primero, o deja el proxy activado.',
+    3115: 'Bitcoin está iniciando: ${step}',
+    3116: 'Índice de filtros de bloques',
+    3117: 'No se pudo leer ${cmd} de Bitcoin: ${error}',
+    3118: 'Sincronizando cabeceras de bloques: ${count}',
+    3119: 'Sincronizando cabeceras de bloques…',
+    3120: 'Sincronización de índices',
+    3121: 'No hay índices habilitados',
+    3122: 'Todos los índices habilitados están actualizados',
+    3123: 'Construyendo ${index}: ${percentage}%',
   } satisfies LangDict,
   de_DE: {
     // main.ts
@@ -838,6 +850,18 @@ export default {
     3110: 'Syncing',
     3111: 'Stalled just below the BLAKE2b activation height, which means this node has no peers on the fork. It normally finds them through the DNS seeds. Add one directly under Peers if your network blocks DNS.',
     3112: 'Before the BLAKE2b activation',
+    // ported from knots-sha256 / upstream bitcoin-core-startos (1.0.0:38)
+    3113: 'Ungültige Peer-Einstellungen',
+    3114: 'Onlynet ist auf i2p beschränkt, sodass das Abschalten des I2P-SAM-Proxys dem Knoten keinerlei Verbindungsweg ließe. Fügen Sie zuerst ein weiteres Netzwerk zu Onlynet hinzu oder lassen Sie den Proxy aktiviert.',
+    3115: 'Bitcoin startet: ${step}',
+    3116: 'Blockfilter-Index',
+    3117: '${cmd} konnte nicht von Bitcoin gelesen werden: ${error}',
+    3118: 'Blockheader werden synchronisiert: ${count}',
+    3119: 'Blockheader werden synchronisiert…',
+    3120: 'Index-Synchronisierung',
+    3121: 'Keine Indizes aktiviert',
+    3122: 'Alle aktivierten Indizes sind aktuell',
+    3123: '${index} wird aufgebaut: ${percentage}%',
   } satisfies LangDict,
   pl_PL: {
     // main.ts
@@ -1257,6 +1281,18 @@ export default {
     3110: 'Syncing',
     3111: 'Stalled just below the BLAKE2b activation height, which means this node has no peers on the fork. It normally finds them through the DNS seeds. Add one directly under Peers if your network blocks DNS.',
     3112: 'Before the BLAKE2b activation',
+    // ported from knots-sha256 / upstream bitcoin-core-startos (1.0.0:38)
+    3113: 'Nieprawidłowe ustawienia peerów',
+    3114: 'Onlynet jest ograniczony do i2p, więc wyłączenie proxy SAM I2P pozbawiłoby węzeł jakiejkolwiek możliwości połączenia. Najpierw dodaj do Onlynet inną sieć albo pozostaw proxy włączone.',
+    3115: 'Bitcoin uruchamia się: ${step}',
+    3116: 'Indeks filtrów bloków',
+    3117: 'Nie udało się odczytać ${cmd} z Bitcoina: ${error}',
+    3118: 'Synchronizowanie nagłówków bloków: ${count}',
+    3119: 'Synchronizowanie nagłówków bloków…',
+    3120: 'Synchronizacja indeksów',
+    3121: 'Żadne indeksy nie są włączone',
+    3122: 'Wszystkie włączone indeksy są aktualne',
+    3123: 'Budowanie ${index}: ${percentage}%',
   } satisfies LangDict,
   fr_FR: {
     // main.ts
@@ -1676,5 +1712,17 @@ export default {
     3110: 'Syncing',
     3111: 'Stalled just below the BLAKE2b activation height, which means this node has no peers on the fork. It normally finds them through the DNS seeds. Add one directly under Peers if your network blocks DNS.',
     3112: 'Before the BLAKE2b activation',
+    // ported from knots-sha256 / upstream bitcoin-core-startos (1.0.0:38)
+    3113: 'Paramètres des pairs invalides',
+    3114: "Onlynet est restreint à i2p ; désactiver le proxy SAM I2P priverait le nœud de tout moyen de se connecter. Ajoutez d'abord un autre réseau à Onlynet, ou laissez le proxy activé.",
+    3115: 'Bitcoin démarre : ${step}',
+    3116: 'Index des filtres de blocs',
+    3117: 'Impossible de lire ${cmd} depuis Bitcoin : ${error}',
+    3118: 'Synchronisation des en-têtes de blocs : ${count}',
+    3119: 'Synchronisation des en-têtes de blocs…',
+    3120: 'Synchronisation des index',
+    3121: 'Aucun index activé',
+    3122: 'Tous les index activés sont à jour',
+    3123: 'Construction de ${index} : ${percentage}%',
   } satisfies LangDict,
 }

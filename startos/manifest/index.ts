@@ -49,7 +49,7 @@ export const manifest = setupManifest({
     //
     // OUR BUILD, not `ghcr.io/start9labs/btc-rpc-proxy`, and this is the one
     // image substitution that is load-bearing rather than cosmetic. The stock image
-    // still cannot parse a 164-byte BLAKE2b header at v0.8.1, and it parses the block for any
+    // still cannot parse a 164-byte BLAKE2b header at v0.8.2, and it parses the block for any
     // request it intercepts, not only one it had to fetch from peers. So every
     // verbose `getblock` and every intercepted `getrawtransaction` above block
     // 961640 returned "IO error: failed to fill whole buffer", on blocks this
@@ -58,8 +58,12 @@ export const manifest = setupManifest({
     //
     // Carries PR #33, which is the BLAKE2b header support and is still open.
     //
-    // PR #34 has landed: it is in upstream v0.8.1, so this image is now v0.8.1
-    // plus #33 rather than v0.8.0 plus both. #34 was two upstream defects rather
+    // This image is upstream v0.8.2 plus #33, plus our single-flight peer fetch
+    // (a fetch runs once per block, as its own task, so a client that hangs up
+    // no longer discards it). v0.8.2 is upstream's JSON-RPC 2.0 and batch-order
+    // fixes.
+    //
+    // PR #34 landed in upstream v0.8.1. #34 was two upstream defects rather
     // than anything BLAKE2b-specific, and either one stopped a pruned node's
     // dependents dead:
     //
@@ -76,7 +80,7 @@ export const manifest = setupManifest({
     // us off it now.
     proxy: {
       source: {
-        dockerTag: 'paulscode/btc-rpc-proxy:v0.8.1-blake2b.2',
+        dockerTag: 'paulscode/btc-rpc-proxy:v0.8.2-blake2b.1',
       },
       arch: ['x86_64', 'aarch64'],
     },

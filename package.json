@@ -2,7 +2,8 @@
   "name": "knots-blake2b-startos",
   "scripts": {
     "build": "rm -rf ./javascript && ncc build startos/index.ts -o ./javascript",
-    "prettier": "prettier --write startos",
+    "prettier": "prettier --write startos test",
+    "test": "node --experimental-strip-types --test test/*.test.ts",
     "check": "tsc --noEmit"
   },
   "dependencies": {

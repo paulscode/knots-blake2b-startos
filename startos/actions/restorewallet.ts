@@ -54,13 +54,21 @@ export const restorewallet = sdk.Action.withoutInput(
         .mountAssets({ subpath: null, mountpoint }),
       'Restore wallet',
       async (subc) => {
-        return await subc.execFail([
-          'bitcoin-cli',
-          ...rpcArgs({ prune: !!conf.prune }),
-          'restorewallet',
-          wallet,
-          backupFile,
-        ])
+        // No exec timeout: restorewallet rescans the chain, which takes minutes on
+        // a real wallet, and the SDK's 30 s default would SIGKILL bitcoin-cli and
+        // report failure while bitcoind carried on restoring. bitcoin-cli bounds
+        // the call itself (-rpcclienttimeout, 900 s by default).
+        return await subc.execFail(
+          [
+            'bitcoin-cli',
+            ...rpcArgs({ prune: !!conf.prune }),
+            'restorewallet',
+            wallet,
+            backupFile,
+          ],
+          undefined,
+          null,
+        )
       },
     )
 

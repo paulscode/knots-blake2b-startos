@@ -369,6 +369,17 @@ const dict = {
   Syncing: 3110,
   'Stalled just below the BLAKE2b activation height, which means this node has no peers on the fork. It normally finds them through the DNS seeds. Add one directly under Peers if your network blocks DNS.': 3111,
   'Before the BLAKE2b activation': 3112,
+  'Invalid Peer Settings': 3113,
+  'Onlynet is restricted to i2p, so disabling the I2P SAM Proxy would leave the node with no way to connect at all. Add another network to Onlynet first, or leave the proxy enabled.': 3114,
+  'Bitcoin is starting: ${step}': 3115,
+  'Block Filter Index': 3116,
+  'Could not read ${cmd} from Bitcoin: ${error}': 3117,
+  'Syncing block headers: ${count}': 3118,
+  'Syncing block headers…': 3119,
+  'Index Sync': 3120,
+  'No indexes are enabled': 3121,
+  'All enabled indexes are up to date': 3122,
+  'Building ${index}: ${percentage}%': 3123,
 } as const
 
 /**

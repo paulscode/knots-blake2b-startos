@@ -12,6 +12,9 @@ const dependentConfigSpec = fullConfigSpec.filter({
   peerbloomfilters: true,
   prune: true,
   txindex: true,
+  // A dependent that needs the node's wallet can turn it on from its task
+  // (upstream bitcoin-core-startos 667b423).
+  wallet: { enable: true },
   zmqEnabled: true,
 })
 
