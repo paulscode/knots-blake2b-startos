@@ -66,8 +66,7 @@ export const restorewallet = sdk.Action.withoutInput(
             wallet,
             backupFile,
           ],
-          undefined,
-          null,
+          { timeout: null },
         )
       },
     )

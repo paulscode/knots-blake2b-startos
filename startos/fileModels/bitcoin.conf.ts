@@ -66,7 +66,7 @@ const onlyNetOption = z.enum(validNets)
 type ValidNets = z.infer<typeof onlyNetOption>
 
 export const shape = z
-  .object({
+  .looseObject({
     // RPC enforced
     rpcbind: z.enum([rpcbind, rpcbindPruned]).catch(rpcbind),
     rpcallowip: z.enum([rpcallowip, rpcallowipPruned]).catch(rpcallowip),
