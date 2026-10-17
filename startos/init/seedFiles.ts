@@ -28,6 +28,10 @@ export const seedFiles = sdk.setupOnInit(async (effects, kind) => {
       dbcache: defaultDbcache(),
       dbbatchsize: defaultDbbatchsize(),
       natpmp: false,
+      // Written rather than left to Knots' own default (true at the pinned tag)
+      // so the choice belongs to this install and survives a repin. Only on
+      // install: an existing node keeps whatever its bitcoin.conf says.
+      rejecttokens: true,
       datacarriercost: defaultDatacarriercost,
       // Pruned on every fresh install, where the official package prunes only
       // on a small disk. This node exists to sit beside one on the other chain,
