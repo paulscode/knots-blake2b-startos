@@ -380,6 +380,13 @@ const dict = {
   'No indexes are enabled': 3121,
   'All enabled indexes are up to date': 3122,
   'Building ${index}: ${percentage}%': 3123,
+  'Delete Block Filter Index': 3124,
+  'Deletes the BIP158 Block Filter Index in case it gets corrupted, without deleting other indexes, blocks, or chainstate.': 3125,
+  "The Block Filter Index will be rebuilt on the next start if 'Compute Compact Block Filters (BIP158)' is enabled in 'Other Settings'. Filter-based wallets must wait for the rebuild. If historical blocks have been pruned, rebuilding requires 'Reindex Blockchain' and downloading the chain again; disable block filters to start without rebuilding.": 3126,
+  'Successfully deleted block filter index': 3127,
+  'Deletes the Coinstats Index (coinstats) in case it gets corrupted.': 3128,
+  "The Coinstats Index will be rebuilt once Bitcoin Knots is started again, unless 'Coinstats Index' is disabled in the config settings. Please don't do this unless you fully understand what you are doing.": 3129,
+  "The Transaction Index will be rebuilt once Bitcoin Knots is started again, unless 'Transaction Index' is disabled in the config settings. Please don't do this unless you fully understand what you are doing.": 3130,
 } as const
 
 /**

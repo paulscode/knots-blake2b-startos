@@ -431,6 +431,13 @@ export default {
     3121: 'No hay índices habilitados',
     3122: 'Todos los índices habilitados están actualizados',
     3123: 'Construyendo ${index}: ${percentage}%',
+    3124: 'Eliminar índice de filtros de bloques',
+    3125: 'Elimina el índice de filtros de bloques BIP158 si se corrompe, sin eliminar otros índices, bloques ni el estado de la cadena.',
+    3126: "El índice de filtros de bloques se reconstruirá en el próximo inicio si 'Calcular filtros de bloque compactos (BIP158)' está activado en 'Otras configuraciones'. Las carteras basadas en filtros deben esperar a que termine la reconstrucción. Si se han podado bloques históricos, la reconstrucción requiere 'Reindexar blockchain' y descargar la cadena de nuevo; desactiva los filtros de bloques para iniciar sin reconstruirlos.",
+    3127: 'Índice de filtros de bloques eliminado correctamente',
+    3128: 'Elimina el índice Coinstats (coinstats) en caso de que se corrompa.',
+    3129: "El índice Coinstats se reconstruirá una vez que se inicie Bitcoin Knots nuevamente, a menos que 'Índice Coinstats' esté deshabilitado en la configuración. Por favor, no haga esto a menos que comprenda completamente lo que está haciendo.",
+    3130: "El índice de transacciones se reconstruirá una vez que se inicie Bitcoin Knots nuevamente, a menos que 'Índice de transacciones' esté deshabilitado en la configuración. Por favor, no haga esto a menos que comprenda completamente lo que está haciendo.",
   } satisfies LangDict,
   de_DE: {
     // main.ts
@@ -862,6 +869,13 @@ export default {
     3121: 'Keine Indizes aktiviert',
     3122: 'Alle aktivierten Indizes sind aktuell',
     3123: '${index} wird aufgebaut: ${percentage}%',
+    3124: 'Blockfilter-Index löschen',
+    3125: 'Löscht den BIP158-Blockfilter-Index bei Beschädigung, ohne andere Indizes, Blöcke oder den Chainstate zu löschen.',
+    3126: "Der Blockfilter-Index wird beim nächsten Start neu aufgebaut, wenn 'Kompakte Blockfilter berechnen (BIP158)' unter 'Weitere Einstellungen' aktiviert ist. Filterbasierte Wallets müssen den Neuaufbau abwarten. Wurden historische Blöcke bereits gelöscht (Pruning), erfordert der Neuaufbau 'Blockchain neu indizieren' und einen erneuten Download der Blockchain; Blockfilter deaktivieren, um ohne Neuaufbau zu starten.",
+    3127: 'Blockfilter-Index erfolgreich gelöscht',
+    3128: 'Löscht den Coinstats-Index (coinstats), falls er beschädigt wird.',
+    3129: "Der Coinstats-Index wird neu erstellt, sobald Bitcoin Knots erneut gestartet wird, es sei denn, 'Coinstats-Index' ist in den Konfigurationseinstellungen deaktiviert. Bitte tun Sie dies nicht, es sei denn, Sie verstehen vollständig, was Sie tun.",
+    3130: "Der Transaktionsindex wird neu erstellt, sobald Bitcoin Knots erneut gestartet wird, es sei denn, 'Transaktionsindex' ist in den Konfigurationseinstellungen deaktiviert. Bitte tun Sie dies nicht, es sei denn, Sie verstehen vollständig, was Sie tun.",
   } satisfies LangDict,
   pl_PL: {
     // main.ts
@@ -1293,6 +1307,13 @@ export default {
     3121: 'Żadne indeksy nie są włączone',
     3122: 'Wszystkie włączone indeksy są aktualne',
     3123: 'Budowanie ${index}: ${percentage}%',
+    3124: 'Usuń indeks filtrów bloków',
+    3125: 'Usuwa uszkodzony indeks filtrów bloków BIP158 bez usuwania innych indeksów, bloków ani stanu łańcucha.',
+    3126: "Indeks filtrów bloków zostanie odbudowany przy następnym uruchomieniu, jeśli opcja 'Oblicz kompaktowe filtry bloków (BIP158)' jest włączona w 'Inne ustawienia'. Portfele korzystające z filtrów muszą poczekać na odbudowę. Jeśli historyczne bloki zostały przycięte, odbudowa wymaga akcji 'Przeindeksuj blockchain' i pobrania łańcucha od nowa; wyłącz filtry bloków, aby uruchomić węzeł bez odbudowy.",
+    3127: 'Pomyślnie usunięto indeks filtrów bloków',
+    3128: 'Usuwa indeks Coinstats (coinstats) w przypadku jego uszkodzenia.',
+    3129: "Indeks Coinstats zostanie przebudowany po ponownym uruchomieniu Bitcoin Knots, chyba że 'Indeks Coinstats' jest wyłączony w ustawieniach konfiguracji. Proszę tego nie robić, chyba że w pełni rozumiesz, co robisz.",
+    3130: "Indeks transakcji zostanie przebudowany po ponownym uruchomieniu Bitcoin Knots, chyba że 'Indeks transakcji' jest wyłączony w ustawieniach konfiguracji. Proszę tego nie robić, chyba że w pełni rozumiesz, co robisz.",
   } satisfies LangDict,
   fr_FR: {
     // main.ts
@@ -1724,5 +1745,12 @@ export default {
     3121: 'Aucun index activé',
     3122: 'Tous les index activés sont à jour',
     3123: 'Construction de ${index} : ${percentage}%',
+    3124: "Supprimer l'index des filtres de blocs",
+    3125: "Supprime l'index des filtres de blocs BIP158 en cas de corruption, sans supprimer les autres index, les blocs ni l'état de la chaîne.",
+    3126: "L'index des filtres de blocs sera reconstruit au prochain démarrage si 'Calculer les filtres de blocs compacts (BIP158)' est activé dans 'Autres paramètres'. Les portefeuilles utilisant les filtres doivent attendre la reconstruction. Si des blocs historiques ont été élagués, la reconstruction nécessite 'Réindexer la blockchain' et un nouveau téléchargement de la chaîne ; désactivez les filtres de blocs pour démarrer sans reconstruction.",
+    3127: 'Index des filtres de blocs supprimé avec succès',
+    3128: "Supprime l'index Coinstats (coinstats) au cas où il serait corrompu.",
+    3129: "L'index Coinstats sera reconstruit une fois Bitcoin Knots redémarré, sauf si 'Index Coinstats' est désactivé dans les paramètres de configuration. Veuillez ne pas faire cela à moins que vous ne compreniez parfaitement ce que vous faites.",
+    3130: "L'index des transactions sera reconstruit une fois Bitcoin Knots redémarré, sauf si 'Index des transactions' est désactivé dans les paramètres de configuration. Veuillez ne pas faire cela à moins que vous ne compreniez parfaitement ce que vous faites.",
   } satisfies LangDict,
 }

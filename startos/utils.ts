@@ -1,4 +1,5 @@
 import { T } from '@start9labs/start-sdk'
+import { rm } from 'fs/promises'
 import { storeJson } from './fileModels/store.json'
 import { i18n } from './i18n'
 import { sdk } from './sdk'
@@ -97,6 +98,30 @@ export const bitcoinMounts = sdk.Mounts.of().mountVolume({
   mountpoint: rootDir,
   readonly: false,
 })
+
+/**
+ * Removes one of bitcoind's secondary index directories under indexes/.
+ * Knots 29 calls the coinstats one `coinstats` (src/index/coinstatsindex.cpp);
+ * `coinstatsindex` is the 30+ spelling, and deleting that here failed ENOENT.
+ * `force` so an index that was never built is not an error.
+ */
+export async function deleteIndex(
+  effects: T.Effects,
+  index: 'blockfilter' | 'coinstats' | 'txindex',
+) {
+  await sdk.SubContainer.withTemp(
+    effects,
+    { imageId: 'bitcoind' },
+    bitcoinMounts,
+    `delete-${index}`,
+    async (subc) => {
+      await rm(`${subc.rootfs}${rootDir}/indexes/${index}`, {
+        recursive: true,
+        force: true,
+      })
+    },
+  )
+}
 
 export type GetNetworkInfo = {
   connections: number
