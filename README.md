@@ -235,8 +235,10 @@ branch), which is that package carrying BLAKE2b. Twenty-five actions where this 
 five: the config groups (Peers, RPC Settings, Mempool, Other, Auto Config), the
 wallet group (Get Address, Get Balance, Send Coins, Send All Coins, Sign Message,
 Select Wallet, Backup/Restore/Remove Wallet), and maintenance (Reindex Blockchain,
-Reindex Chainstate, Take Snapshot, Prioritise Transaction, and the four delete
-actions).
+Reindex Chainstate, Take Snapshot, Prioritise Transaction, and the delete
+actions). Delete Block Filter Index joined them in 1.0.0:40, ported with the shared
+`deleteIndex()` from bitcoin-core-startos 29.4:19; Knots 29 keeps the coinstats index
+in `indexes/coinstats`, not the 30+ `indexes/coinstatsindex`.
 
 Two actions this package used to have are gone, replaced by their equivalents:
 
@@ -295,6 +297,12 @@ assurance and is stated under Upstream above rather than glossed.
   and a call that cannot run reads `failure`. Index Sync is `getindexinfo`, reporting
   the furthest-behind enabled index. Both came from Start9's bitcoin-core-startos in
   1.0.0:38 (#287/#289), with `requires` pointed at `node`.
+- **Blockchain Sync out of IBD** compares `headers` with `blocks`: two or more ahead
+  reads "Catching up", one ahead is a block between header and connection and stays
+  synced. **Peers** is `getnetworkinfo`: failure with no outbound peer after a
+  five-minute grace, disabled while networking is off. Both came from bitcoin-core-startos
+  29.4:21/29.4:22 in 1.0.0:40. Neither replaces the `chain` check, which is still the
+  one that names a stall below the activation height.
 - **I2P log lines** are filtered by `startos/i2pdLogFilter.ts`, which drops i2pd's
   known routine network-weather messages and prefixes the rest `[i2pd]`. Unknown
   messages always pass. Its tests run with `npm test`, which needs Node 22.6 or later
