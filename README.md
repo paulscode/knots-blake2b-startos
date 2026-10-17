@@ -299,15 +299,17 @@ assurance and is stated under Upstream above rather than glossed.
   1.0.0:38 (#287/#289), with `requires` pointed at `node`.
 - **Blockchain Sync out of IBD** compares `headers` with `blocks`: two or more ahead
   reads "Catching up", one ahead is a block between header and connection and stays
-  synced. **Peers** is `getnetworkinfo`: failure with no outbound peer after a
-  five-minute grace, disabled while networking is off. Both came from bitcoin-core-startos
+  synced. **Peers** reads `getpeerinfo` and counts only outbound peers advertising
+  the `BLAKE2B?` service bit: Knots keeps up to `-maxstaleoutbound` (8) outbound peers
+  without it, which `getnetworkinfo`'s `connections_out` would count. Failure with none,
+  after a five-minute grace from startup; disabled while networking is off. Both came from bitcoin-core-startos
   29.4:21/29.4:22 in 1.0.0:40. Neither replaces the `chain` check, which is still the
   one that names a stall below the activation height.
 - **I2P log lines** are filtered by `startos/i2pdLogFilter.ts`, which drops i2pd's
   known routine network-weather messages and prefixes the rest `[i2pd]`. Unknown
   messages always pass. Its tests run with `npm test`, which needs Node 22.6 or later
-  (`--experimental-strip-types`); `npm run check` stays type-only so a release build
-  on an older Node still works.
+  (`--experimental-strip-types`); the build runs them through `TS_CHECK` in the
+  Makefile, so build with Node 22.
 
 ## Build
 

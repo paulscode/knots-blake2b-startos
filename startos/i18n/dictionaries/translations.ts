@@ -440,8 +440,8 @@ export default {
     3130: "El índice de transacciones se reconstruirá una vez que se inicie Bitcoin Knots nuevamente, a menos que 'Índice de transacciones' esté deshabilitado en la configuración. Por favor, no haga esto a menos que comprenda completamente lo que está haciendo.",
     3131: 'Pares',
     3132: 'Las conexiones entre pares están desactivadas',
-    3133: 'Ningún par saliente (entrantes: ${inbound})',
-    3134: 'Salientes: ${outbound}, entrantes: ${inbound}',
+    3133: 'Ningún par saliente en la cadena BLAKE2b (otros salientes: ${others}, entrantes: ${inbound})',
+    3134: 'Salientes BLAKE2b: ${outbound}, otros salientes: ${others}, entrantes: ${inbound}',
     3135: 'Poniéndose al día: ${count} bloques de retraso',
   } satisfies LangDict,
   de_DE: {
@@ -883,8 +883,8 @@ export default {
     3130: "Der Transaktionsindex wird neu erstellt, sobald Bitcoin Knots erneut gestartet wird, es sei denn, 'Transaktionsindex' ist in den Konfigurationseinstellungen deaktiviert. Bitte tun Sie dies nicht, es sei denn, Sie verstehen vollständig, was Sie tun.",
     3131: 'Peers',
     3132: 'Peer-to-Peer-Netzwerk ist ausgeschaltet',
-    3133: 'Keine ausgehenden Peers (eingehend: ${inbound})',
-    3134: 'Ausgehend: ${outbound}, eingehend: ${inbound}',
+    3133: 'Keine ausgehenden Peers auf der BLAKE2b-Kette (andere ausgehend: ${others}, eingehend: ${inbound})',
+    3134: 'Ausgehend BLAKE2b: ${outbound}, andere ausgehend: ${others}, eingehend: ${inbound}',
     3135: 'Holt auf: ${count} Blöcke im Rückstand',
   } satisfies LangDict,
   pl_PL: {
@@ -1326,8 +1326,8 @@ export default {
     3130: "Indeks transakcji zostanie przebudowany po ponownym uruchomieniu Bitcoin Knots, chyba że 'Indeks transakcji' jest wyłączony w ustawieniach konfiguracji. Proszę tego nie robić, chyba że w pełni rozumiesz, co robisz.",
     3131: 'Węzły',
     3132: 'Sieć peer-to-peer jest wyłączona',
-    3133: 'Brak węzłów wychodzących (przychodzące: ${inbound})',
-    3134: 'Wychodzące: ${outbound}, przychodzące: ${inbound}',
+    3133: 'Brak węzłów wychodzących w łańcuchu BLAKE2b (inne wychodzące: ${others}, przychodzące: ${inbound})',
+    3134: 'Wychodzące BLAKE2b: ${outbound}, inne wychodzące: ${others}, przychodzące: ${inbound}',
     3135: 'Nadrabianie zaległości: brakuje ${count} bloków',
   } satisfies LangDict,
   fr_FR: {
@@ -1769,8 +1769,8 @@ export default {
     3130: "L'index des transactions sera reconstruit une fois Bitcoin Knots redémarré, sauf si 'Index des transactions' est désactivé dans les paramètres de configuration. Veuillez ne pas faire cela à moins que vous ne compreniez parfaitement ce que vous faites.",
     3131: 'Pairs',
     3132: 'Le réseau pair-à-pair est désactivé',
-    3133: 'Aucun pair sortant (entrants : ${inbound})',
-    3134: 'Sortants : ${outbound}, entrants : ${inbound}',
+    3133: 'Aucun pair sortant sur la chaîne BLAKE2b (autres sortants : ${others}, entrants : ${inbound})',
+    3134: 'Sortants BLAKE2b : ${outbound}, autres sortants : ${others}, entrants : ${inbound}',
     3135: 'Rattrapage en cours : ${count} blocs de retard',
   } satisfies LangDict,
 }

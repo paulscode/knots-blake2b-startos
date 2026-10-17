@@ -389,8 +389,8 @@ const dict = {
   "The Transaction Index will be rebuilt once Bitcoin Knots is started again, unless 'Transaction Index' is disabled in the config settings. Please don't do this unless you fully understand what you are doing.": 3130,
   Peers: 3131,
   'Peer-to-peer networking is turned off': 3132,
-  'No outbound peers (inbound: ${inbound})': 3133,
-  'Outbound: ${outbound}, inbound: ${inbound}': 3134,
+  'No outbound peers on the BLAKE2b chain (other outbound: ${others}, inbound: ${inbound})': 3133,
+  'BLAKE2b outbound: ${outbound}, other outbound: ${others}, inbound: ${inbound}': 3134,
   'Catching up: ${count} blocks behind': 3135,
 } as const
 

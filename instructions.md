@@ -33,8 +33,9 @@ Five health checks tell you where you stand.
 the node starts it shows what it is doing, such as loading the block index or
 replaying blocks after an unclean shutdown. After the first sync it reads "Catching
 up" with a block count if the node falls two or more blocks behind. **Peers** fails if
-the node has had no outbound peers for five minutes, which is the one way a node can
-fall behind without knowing it. **Index Sync** shows progress while an
+the node has no outbound peers on the BLAKE2b chain, after a five-minute grace period at
+startup, which is the one way a node can fall behind without knowing it. Outbound peers
+on the other chain are shown but do not count. **Index Sync** shows progress while an
 index you turned on (transaction index, coinstats, block filters) is being built, and
 says nothing is enabled otherwise. **Chain** says which chain it is actually on, and
 that is the one to read:

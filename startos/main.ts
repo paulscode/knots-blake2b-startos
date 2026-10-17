@@ -498,8 +498,9 @@ export const main = sdk.setupMain(async ({ effects }) => {
             return {
               result: 'loading' as const,
               message: info.headers
-                ? // A string, not the number: SDK 2.0.9's i18n formats a number
-                  // with Intl in the container's locale, which is C, and throws.
+                ? // A string, so the count shows as plain digits. SDK 2.0.9's
+                  // i18n threw on a number in the container's C locale; 3.x
+                  // no longer does, but a string is still the plain form.
                   i18n('Syncing block headers: ${count}', {
                     count: String(info.headers),
                   })
@@ -618,6 +619,12 @@ export const main = sdk.setupMain(async ({ effects }) => {
      * A node with no outbound peer hears about no new blocks, and the sync
      * check keeps reading synced because nothing newer has arrived to compare
      * against. Inbound peers alone are not enough: anyone can connect in.
+     *
+     * Only outbound peers on this chain count. Knots keeps up to
+     * -maxstaleoutbound (8) outbound peers that do not advertise the BLAKE2B
+     * service bit as extra connections, and getnetworkinfo counts them in
+     * connections_out, so a node whose only outbound peers are on the SHA256
+     * side would read healthy here while hearing no BLAKE2b blocks at all.
      */
     .addHealthCheck('peers', {
       ready: {
@@ -631,30 +638,54 @@ export const main = sdk.setupMain(async ({ effects }) => {
           const res = await probe<GetNetworkInfo>('getnetworkinfo')
           if ('health' in res) return res.health
 
-          const { networkactive, connections_in, connections_out } = res.value
-
-          if (!networkactive)
+          if (!res.value.networkactive)
             return {
               result: 'disabled' as const,
               message: i18n('Peer-to-peer networking is turned off'),
             }
 
-          // Strings, not numbers, for the same locale reason as the header
-          // count in sync-progress.
-          if (!connections_out)
+          const peersRes = await probe<
+            {
+              inbound: boolean
+              connection_type?: string
+              servicesnames?: string[]
+            }[]
+          >('getpeerinfo')
+          if ('health' in peersRes) return peersRes.health
+
+          // Feelers and addr-fetch connections are transient and carry no
+          // blocks, so they count as neither.
+          const outbound = peersRes.value.filter(
+            (p) =>
+              !p.inbound &&
+              p.connection_type !== 'feeler' &&
+              p.connection_type !== 'addr-fetch',
+          )
+          const onChain = outbound.filter((p) =>
+            (p.servicesnames ?? []).includes('BLAKE2B?'),
+          ).length
+          const others = outbound.length - onChain
+          const inbound = peersRes.value.filter((p) => p.inbound).length
+
+          if (!onChain)
             return {
               result: 'failure' as const,
-              message: i18n('No outbound peers (inbound: ${inbound})', {
-                inbound: String(connections_in),
-              }),
+              message: i18n(
+                'No outbound peers on the BLAKE2b chain (other outbound: ${others}, inbound: ${inbound})',
+                { others: String(others), inbound: String(inbound) },
+              ),
             }
 
           return {
             result: 'success' as const,
-            message: i18n('Outbound: ${outbound}, inbound: ${inbound}', {
-              outbound: String(connections_out),
-              inbound: String(connections_in),
-            }),
+            message: i18n(
+              'BLAKE2b outbound: ${outbound}, other outbound: ${others}, inbound: ${inbound}',
+              {
+                outbound: String(onChain),
+                others: String(others),
+                inbound: String(inbound),
+              },
+            ),
           }
         },
       },
