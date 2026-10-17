@@ -442,6 +442,7 @@ export default {
     3132: 'Las conexiones entre pares están desactivadas',
     3133: 'Ningún par saliente (entrantes: ${inbound})',
     3134: 'Salientes: ${outbound}, entrantes: ${inbound}',
+    3135: 'Poniéndose al día: ${count} bloques de retraso',
   } satisfies LangDict,
   de_DE: {
     // main.ts
@@ -884,6 +885,7 @@ export default {
     3132: 'Peer-to-Peer-Netzwerk ist ausgeschaltet',
     3133: 'Keine ausgehenden Peers (eingehend: ${inbound})',
     3134: 'Ausgehend: ${outbound}, eingehend: ${inbound}',
+    3135: 'Holt auf: ${count} Blöcke im Rückstand',
   } satisfies LangDict,
   pl_PL: {
     // main.ts
@@ -1326,6 +1328,7 @@ export default {
     3132: 'Sieć peer-to-peer jest wyłączona',
     3133: 'Brak węzłów wychodzących (przychodzące: ${inbound})',
     3134: 'Wychodzące: ${outbound}, przychodzące: ${inbound}',
+    3135: 'Nadrabianie zaległości: brakuje ${count} bloków',
   } satisfies LangDict,
   fr_FR: {
     // main.ts
@@ -1768,5 +1771,6 @@ export default {
     3132: 'Le réseau pair-à-pair est désactivé',
     3133: 'Aucun pair sortant (entrants : ${inbound})',
     3134: 'Sortants : ${outbound}, entrants : ${inbound}',
+    3135: 'Rattrapage en cours : ${count} blocs de retard',
   } satisfies LangDict,
 }

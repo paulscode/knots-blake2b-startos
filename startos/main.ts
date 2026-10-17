@@ -475,7 +475,21 @@ export const main = sdk.setupMain(async ({ effects }) => {
             result: 'success' as const,
           }
 
-          if (!info.initialblockdownload) return synced
+          // bitcoind latches initialblockdownload false for the life of the
+          // process, so a node that falls behind later still reports false.
+          // Two or more headers ahead is behind; one is a new block between
+          // its header and its connection (Core's IsCurrentForFeeEstimation
+          // draws the same line).
+          if (!info.initialblockdownload) {
+            const behind = info.headers - info.blocks
+            if (behind < 2) return synced
+            return {
+              result: 'loading' as const,
+              message: i18n('Catching up: ${count} blocks behind', {
+                count: String(behind),
+              }),
+            }
+          }
 
           // At genesis nothing sits above the tip to find yet either, and
           // verificationprogress is still 0 — the header chain is the only

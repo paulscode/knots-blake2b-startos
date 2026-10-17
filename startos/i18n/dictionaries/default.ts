@@ -391,6 +391,7 @@ const dict = {
   'Peer-to-peer networking is turned off': 3132,
   'No outbound peers (inbound: ${inbound})': 3133,
   'Outbound: ${outbound}, inbound: ${inbound}': 3134,
+  'Catching up: ${count} blocks behind': 3135,
 } as const
 
 /**
