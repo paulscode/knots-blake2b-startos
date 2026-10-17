@@ -13,6 +13,7 @@ import {
   bitcoinMounts,
   ChainTip,
   GetBlockchainInfo,
+  GetNetworkInfo,
   i2pControlPort,
   mainnetActivationHeight,
   rootDir,
@@ -593,6 +594,52 @@ export const main = sdk.setupMain(async ({ effects }) => {
                 ? (behind[1].best_block_height / tip) * 100
                 : 0
               ).toFixed(2),
+            }),
+          }
+        },
+      },
+      requires: ['node'],
+    })
+    /**
+     * A node with no outbound peer hears about no new blocks, and the sync
+     * check keeps reading synced because nothing newer has arrived to compare
+     * against. Inbound peers alone are not enough: anyone can connect in.
+     */
+    .addHealthCheck('peers', {
+      ready: {
+        display: i18n('Peers'),
+        trigger: sdk.trigger.statusTrigger(30_000, {
+          starting: 5_000,
+          failure: 5_000,
+        }),
+        gracePeriod: 5 * 60 * 1000,
+        fn: async () => {
+          const res = await probe<GetNetworkInfo>('getnetworkinfo')
+          if ('health' in res) return res.health
+
+          const { networkactive, connections_in, connections_out } = res.value
+
+          if (!networkactive)
+            return {
+              result: 'disabled' as const,
+              message: i18n('Peer-to-peer networking is turned off'),
+            }
+
+          // Strings, not numbers, for the same locale reason as the header
+          // count in sync-progress.
+          if (!connections_out)
+            return {
+              result: 'failure' as const,
+              message: i18n('No outbound peers (inbound: ${inbound})', {
+                inbound: String(connections_in),
+              }),
+            }
+
+          return {
+            result: 'success' as const,
+            message: i18n('Outbound: ${outbound}, inbound: ${inbound}', {
+              outbound: String(connections_out),
+              inbound: String(connections_in),
             }),
           }
         },

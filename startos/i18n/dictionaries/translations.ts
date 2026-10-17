@@ -438,6 +438,10 @@ export default {
     3128: 'Elimina el índice Coinstats (coinstats) en caso de que se corrompa.',
     3129: "El índice Coinstats se reconstruirá una vez que se inicie Bitcoin Knots nuevamente, a menos que 'Índice Coinstats' esté deshabilitado en la configuración. Por favor, no haga esto a menos que comprenda completamente lo que está haciendo.",
     3130: "El índice de transacciones se reconstruirá una vez que se inicie Bitcoin Knots nuevamente, a menos que 'Índice de transacciones' esté deshabilitado en la configuración. Por favor, no haga esto a menos que comprenda completamente lo que está haciendo.",
+    3131: 'Pares',
+    3132: 'Las conexiones entre pares están desactivadas',
+    3133: 'Ningún par saliente (entrantes: ${inbound})',
+    3134: 'Salientes: ${outbound}, entrantes: ${inbound}',
   } satisfies LangDict,
   de_DE: {
     // main.ts
@@ -876,6 +880,10 @@ export default {
     3128: 'Löscht den Coinstats-Index (coinstats), falls er beschädigt wird.',
     3129: "Der Coinstats-Index wird neu erstellt, sobald Bitcoin Knots erneut gestartet wird, es sei denn, 'Coinstats-Index' ist in den Konfigurationseinstellungen deaktiviert. Bitte tun Sie dies nicht, es sei denn, Sie verstehen vollständig, was Sie tun.",
     3130: "Der Transaktionsindex wird neu erstellt, sobald Bitcoin Knots erneut gestartet wird, es sei denn, 'Transaktionsindex' ist in den Konfigurationseinstellungen deaktiviert. Bitte tun Sie dies nicht, es sei denn, Sie verstehen vollständig, was Sie tun.",
+    3131: 'Peers',
+    3132: 'Peer-to-Peer-Netzwerk ist ausgeschaltet',
+    3133: 'Keine ausgehenden Peers (eingehend: ${inbound})',
+    3134: 'Ausgehend: ${outbound}, eingehend: ${inbound}',
   } satisfies LangDict,
   pl_PL: {
     // main.ts
@@ -1314,6 +1322,10 @@ export default {
     3128: 'Usuwa indeks Coinstats (coinstats) w przypadku jego uszkodzenia.',
     3129: "Indeks Coinstats zostanie przebudowany po ponownym uruchomieniu Bitcoin Knots, chyba że 'Indeks Coinstats' jest wyłączony w ustawieniach konfiguracji. Proszę tego nie robić, chyba że w pełni rozumiesz, co robisz.",
     3130: "Indeks transakcji zostanie przebudowany po ponownym uruchomieniu Bitcoin Knots, chyba że 'Indeks transakcji' jest wyłączony w ustawieniach konfiguracji. Proszę tego nie robić, chyba że w pełni rozumiesz, co robisz.",
+    3131: 'Węzły',
+    3132: 'Sieć peer-to-peer jest wyłączona',
+    3133: 'Brak węzłów wychodzących (przychodzące: ${inbound})',
+    3134: 'Wychodzące: ${outbound}, przychodzące: ${inbound}',
   } satisfies LangDict,
   fr_FR: {
     // main.ts
@@ -1752,5 +1764,9 @@ export default {
     3128: "Supprime l'index Coinstats (coinstats) au cas où il serait corrompu.",
     3129: "L'index Coinstats sera reconstruit une fois Bitcoin Knots redémarré, sauf si 'Index Coinstats' est désactivé dans les paramètres de configuration. Veuillez ne pas faire cela à moins que vous ne compreniez parfaitement ce que vous faites.",
     3130: "L'index des transactions sera reconstruit une fois Bitcoin Knots redémarré, sauf si 'Index des transactions' est désactivé dans les paramètres de configuration. Veuillez ne pas faire cela à moins que vous ne compreniez parfaitement ce que vous faites.",
+    3131: 'Pairs',
+    3132: 'Le réseau pair-à-pair est désactivé',
+    3133: 'Aucun pair sortant (entrants : ${inbound})',
+    3134: 'Sortants : ${outbound}, entrants : ${inbound}',
   } satisfies LangDict,
 }
