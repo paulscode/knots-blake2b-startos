@@ -105,13 +105,18 @@ FROM debian:bookworm-slim
 #   wget                  the plain-Docker entrypoint's RPC probe.
 #   curl                  the Take Snapshot (assumeutxo) action downloads the
 #                         UTXO snapshot with it, inside this image.
+#   ca-certificates       curl's trust store. --no-install-recommends drops it,
+#                         and without it every https snapshot URL fails with
+#                         "curl: (77) error setting certificate file". Start9's
+#                         image installs it too, and picks up CA changes (the
+#                         eMudhra distrust, 29.4:24) by rebuilding.
 #   e2fsprogs             `chattr -R +C`, which main.ts runs as a oneshot before
 #                         bitcoind starts. On a copy-on-write filesystem, leaving
 #                         it on for the chainstate turns every write into a new
 #                         extent and the database fragments badly.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         libevent-core-2.1-7 libevent-extra-2.1-7 libevent-pthreads-2.1-7 \
-        libsqlite3-0 libzmq5 wget curl e2fsprogs \
+        libsqlite3-0 libzmq5 wget curl ca-certificates e2fsprogs \
     && rm -rf /var/lib/apt/lists/* \
     && useradd -r -m -d /data -u 1000 bitcoin
 
