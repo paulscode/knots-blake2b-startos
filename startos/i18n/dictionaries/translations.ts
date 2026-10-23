@@ -443,6 +443,8 @@ export default {
     3133: 'Ningún par saliente en la cadena BLAKE2b (otros salientes: ${others}, entrantes: ${inbound})',
     3134: 'Salientes BLAKE2b: ${outbound}, otros salientes: ${others}, entrantes: ${inbound}',
     3135: 'Poniéndose al día: ${count} bloques de retraso',
+    3136: 'Peso reservado del bloque',
+    3137: 'Peso de bloque que las plantillas de bloque dejan libre para la transacción coinbase. El software de minería que construye una coinbase grande, como un pool que paga a muchas salidas, necesita más que el valor predeterminado.',
   } satisfies LangDict,
   de_DE: {
     // main.ts
@@ -886,6 +888,8 @@ export default {
     3133: 'Keine ausgehenden Peers auf der BLAKE2b-Kette (andere ausgehend: ${others}, eingehend: ${inbound})',
     3134: 'Ausgehend BLAKE2b: ${outbound}, andere ausgehend: ${others}, eingehend: ${inbound}',
     3135: 'Holt auf: ${count} Blöcke im Rückstand',
+    3136: 'Reserviertes Blockgewicht',
+    3137: 'Blockgewicht, das Blockvorlagen für die Coinbase-Transaktion freihalten. Mining-Software, die eine große Coinbase erstellt, etwa ein Pool, der an viele Ausgaben auszahlt, benötigt mehr als den Standardwert.',
   } satisfies LangDict,
   pl_PL: {
     // main.ts
@@ -1329,6 +1333,8 @@ export default {
     3133: 'Brak węzłów wychodzących w łańcuchu BLAKE2b (inne wychodzące: ${others}, przychodzące: ${inbound})',
     3134: 'Wychodzące BLAKE2b: ${outbound}, inne wychodzące: ${others}, przychodzące: ${inbound}',
     3135: 'Nadrabianie zaległości: brakuje ${count} bloków',
+    3136: 'Zarezerwowana waga bloku',
+    3137: 'Waga bloku, którą szablony bloków pozostawiają wolną dla transakcji coinbase. Oprogramowanie wydobywcze tworzące dużą transakcję coinbase, na przykład pula wypłacająca na wiele wyjść, potrzebuje więcej niż wartość domyślna.',
   } satisfies LangDict,
   fr_FR: {
     // main.ts
@@ -1772,5 +1778,7 @@ export default {
     3133: 'Aucun pair sortant sur la chaîne BLAKE2b (autres sortants : ${others}, entrants : ${inbound})',
     3134: 'Sortants BLAKE2b : ${outbound}, autres sortants : ${others}, entrants : ${inbound}',
     3135: 'Rattrapage en cours : ${count} blocs de retard',
+    3136: 'Poids de bloc réservé',
+    3137: 'Poids de bloc que les modèles de bloc laissent libre pour la transaction coinbase. Un logiciel de minage qui construit une coinbase volumineuse, comme un pool qui paie de nombreuses sorties, a besoin de plus que la valeur par défaut.',
   } satisfies LangDict,
 }

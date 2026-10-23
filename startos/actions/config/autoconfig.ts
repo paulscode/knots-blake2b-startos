@@ -8,6 +8,9 @@ import { sdk } from '../../sdk'
 const dependentConfigSpec = fullConfigSpec.filter({
   blockfilters: true,
   blocknotify: true,
+  // A mining dependent asks for the coinbase room its payouts need
+  // (upstream bitcoin-core-startos 165fc56).
+  blockreservedweight: true,
   coinstatsindex: true,
   peerbloomfilters: true,
   prune: true,

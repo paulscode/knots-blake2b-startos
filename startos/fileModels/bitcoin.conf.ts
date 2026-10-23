@@ -176,6 +176,7 @@ export const shape = z
     // Other
     softwareexpiry: iniNumber,
     blocknotify: iniString,
+    blockreservedweight: iniNumber,
     prune: z
       .union([
         z.array(z.string()).transform((a) => Number(a.at(-1))),
@@ -572,6 +573,23 @@ export const fullConfigSpec = sdk.InputSpec.of({
     description: i18n(
       'Execute an arbitrary command when the best block changes',
     ),
+  }),
+  // Upstream bitcoin-core-startos 165fc56 (29.4:23) allows up to 4,000,000.
+  // Knots accepts that too, but while RDTS is active (until 2027-09-01) a
+  // block may weigh at most 800,000 WU, and a reservation above that leaves
+  // every template empty, so the form stops there.
+  blockreservedweight: Value.number({
+    name: i18n('Block Reserved Weight'),
+    description: i18n(
+      'Block weight that block templates leave free for the coinbase transaction. Mining software that builds a large coinbase, such as a pool paying many outputs, needs more than the default.',
+    ),
+    required: false,
+    default: null,
+    min: 2_000,
+    max: 800_000,
+    integer: true,
+    units: 'WU',
+    footnote: `${i18n('Default')}: 8000 WU`,
   }),
   templateconstruction: Value.object(
     {
@@ -985,6 +1003,7 @@ function fileToForm(
     avoidpartialspends,
     discardfee,
     blocknotify,
+    blockreservedweight,
     prune,
     dbcache,
     dbbatchsize,
@@ -1062,6 +1081,7 @@ function fileToForm(
       discardfee,
     },
     blocknotify,
+    blockreservedweight,
     templateconstruction: {
       blockmaxsize,
       blockmaxweight,
@@ -1158,6 +1178,7 @@ function formToFile(
     peerbloomfilters,
     blockfilters,
     blocknotify,
+    blockreservedweight,
     dbcache,
     dbbatchsize,
     zmqEnabled,
@@ -1245,6 +1266,7 @@ function formToFile(
           ? 'basic'
           : false,
     blocknotify: blocknotify || undefined,
+    blockreservedweight: blockreservedweight ?? undefined,
     prune: prune ?? 0,
     dbcache: dbcache ?? undefined,
     dbbatchsize: dbbatchsize ?? undefined,

@@ -392,6 +392,8 @@ const dict = {
   'No outbound peers on the BLAKE2b chain (other outbound: ${others}, inbound: ${inbound})': 3133,
   'BLAKE2b outbound: ${outbound}, other outbound: ${others}, inbound: ${inbound}': 3134,
   'Catching up: ${count} blocks behind': 3135,
+  'Block Reserved Weight': 3136,
+  'Block weight that block templates leave free for the coinbase transaction. Mining software that builds a large coinbase, such as a pool paying many outputs, needs more than the default.': 3137,
 } as const
 
 /**
