@@ -1,7 +1,15 @@
 # knots-blake2b
 
 Bitcoin Knots carrying the **BLAKE2b proof-of-work change**, packaged for StartOS
-0.4.0.x so an existing Sia-compatible BLAKE2b ASIC can mine it.
+0.4 so an existing Sia-compatible BLAKE2b ASIC can mine it.
+
+**Requires StartOS 0.4.0.2 or newer** from 1.0.0:40 on. A server on 0.4.0.1 is not
+offered those releases: the registry lists them, but installing one reports
+`not found on https://start9.paulscode.com/rpc/v0`, and a sideloaded s9pk fails
+during install with `invalid type: sequence, expected string or map@bind`.
+Such a server can still install 1.0.0:38, but that release predates Knots 29.4.3
+and does not enforce its 180-day coinbase maturity from block 979919, so it can
+accept blocks the rest of the network rejects. Update StartOS first.
 
 **One chain: BLAKE2b on mainnet.** The two mainnet chains part at block 961632, where
 BIP110 activated, and the proof of work changes at 961640. Both heights, and the
@@ -371,7 +379,7 @@ cookie alongside it, so adding one does not break anything already connected.
 
 ## Status
 
-Builds, installs and runs on StartOS 0.4.0.x, alongside the official `bitcoind` and
+Builds, installs and runs on StartOS 0.4.0.2 and newer, alongside the official `bitcoind` and
 `datum` packages. `rpcHostId` and `rpcPort` in `startos/utils.ts` are this package's
 stable contract for dependents; the *external* port is assigned at runtime and must not
 be assumed.
