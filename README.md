@@ -235,11 +235,14 @@ behind it on loopback 58443. The proxy answers for blocks this node has dropped 
 fetching them from peers and validating them against this node, so a dependent sees a
 node that behaves as though it were archival, with no change on its side.
 
-The image is `paulscode/btc-rpc-proxy:v0.8.2-blake2b.1`: upstream v0.8.2 with
+The image is `paulscode/btc-rpc-proxy:v0.8.2-blake2b.2`: upstream v0.8.2 with
 [PR #33](https://github.com/Start9Labs/btc-rpc-proxy/pull/33) (BLAKE2b headers), an
 optional `difficulty` field (this chain's Knots reports `difficulty_blake2b` for v2
-headers), and a single flight so concurrent requests for one pruned block share a
-fetch. Upstream v0.8.1 took [PR #34](https://github.com/Start9Labs/btc-rpc-proxy/pull/34),
+headers), a single flight so concurrent requests for one pruned block share a
+fetch, and the `NODE_BLAKE2B` service bit in its handshake with peers whenever this
+node advertises it. Knots 29.4.3 serves nothing past the chain split to a peer
+without that bit and does not reply at all, so `v0.8.2-blake2b.1`, which advertised
+no services, timed out on every pruned block after 961631. Upstream v0.8.1 took [PR #34](https://github.com/Start9Labs/btc-rpc-proxy/pull/34),
 which the v0.8.0 line had to carry. #34 is two upstream defects rather than anything
 BLAKE2b-specific, and either one stopped a pruned node's dependents dead: the witness check rejected blocks mined during SegWit signalling,
 whose coinbase commits to witnesses they do not carry (mainnet 434499 is the first,
@@ -297,9 +300,10 @@ Four things were kept rather than taken from upstream, and each is load-bearing:
 - **The `chain` health check.** Upstream has no counterpart, and without it a node
   with no peers on this side of the split looks like a node that is merely syncing
   slowly. See below.
-- **`paulscode/btc-rpc-proxy:v0.8.2-blake2b.1`** rather than the Start9 image. Stock
-  v0.8.2 cannot parse a 164-byte BLAKE2b header, and requires a `difficulty` field this
-  node no longer reports for v2 blocks.
+- **`paulscode/btc-rpc-proxy:v0.8.2-blake2b.2`** rather than the Start9 image. Stock
+  v0.8.2 cannot parse a 164-byte BLAKE2b header, requires a `difficulty` field this
+  node no longer reports for v2 blocks, and advertises no services, so Knots 29.4.3
+  peers will not send it blocks past the split.
 - **Pruned by default**, where upstream is archival unless the disk is small.
 - **Ports 18443/18444/18445.** Upstream uses 8332/8333, which would collide with the
   official package on the one server layout this exists for, and which two dependents

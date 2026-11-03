@@ -64,7 +64,9 @@ export const manifest = setupManifest({
     // This image is upstream v0.8.2 plus #33, plus our single-flight peer fetch
     // (a fetch runs once per block, as its own task, so a client that hangs up
     // no longer discards it). v0.8.2 is upstream's JSON-RPC 2.0 and batch-order
-    // fixes.
+    // fixes. blake2b.2 advertises NODE_BLAKE2B to peers when this node does:
+    // Knots 29.4.3 silently ignores a peer without it for any block past the
+    // split, so blake2b.1 could not fetch a single pruned post-split block.
     //
     // PR #34 landed in upstream v0.8.1. #34 was two upstream defects rather
     // than anything BLAKE2b-specific, and either one stopped a pruned node's
@@ -83,7 +85,7 @@ export const manifest = setupManifest({
     // us off it now.
     proxy: {
       source: {
-        dockerTag: 'paulscode/btc-rpc-proxy:v0.8.2-blake2b.1',
+        dockerTag: 'paulscode/btc-rpc-proxy:v0.8.2-blake2b.2',
       },
       arch: ['x86_64', 'aarch64'],
     },
