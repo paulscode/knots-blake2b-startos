@@ -58,8 +58,10 @@ Verified: this package runs on a box with `bitcoind` and `datum` already install
 ## Upstream
 
 Built from a **pinned commit**, never a branch: `bitcoinknots/bitcoin` @
-`a7c4617524c334f542484bfef3919b9f12573840`, the tag `v29.4.3.knots20260508` (signed by
-luke-jr, 2026-10-27). Recorded as a SHA because a tag can be moved and a SHA cannot. The
+`5811235e3f5da687de1ac8ca731331a2fc24a350`, the tag `v29.5.knots20260508` (signed by
+luke-jr, 2026-11-06), Bitcoin Core 29.5 with Knots' fixes on top. Its consensus code,
+chain parameters and BLAKE2b peer rules are those of 29.4.3, the release that added the
+current maturity rule. Recorded as a SHA because a tag can be moved and a SHA cannot. The
 BLAKE2b change is [bitcoinknots/bitcoin#359](https://github.com/bitcoinknots/bitcoin/pull/359);
 the opt-in signature hash that gives replay protection is
 [#357](https://github.com/bitcoinknots/bitcoin/pull/357). The long coinbase maturity rule
@@ -79,26 +81,26 @@ as it is tagged. Community builds from other repositories (such as `knots-dev/bi
 and pull requests not in a Knots tag are not shipped, whatever their status in the
 community; they may be built and tested here, as 29.4.3's rc5 was, but not released.
 
-The 29.4.3 tag is not on the `29.x-knots` branch, whose head is still 29.4.2's
-`58398baf33`; the tag sits on top of it. Its consensus code is identical to the knots-dev
-community test build `v29.4.3.knots20260508rc5` (kwsantiago), which this package carried
-as an unreleased candidate while the community decided between maturity proposals.
+The 29.5 tag is on the `29.x-knots` branch. The 29.4.3 tag before it was not (it sat on
+top of 29.4.2's `58398baf33`), and its consensus code was identical to the knots-dev
+community test build `v29.4.3.knots20260508rc5` (kwsantiago), which this package built
+and tested but did not release while the community decided between maturity proposals.
 
 This package builds the tag **from source**, so the trust model here is a pinned commit
-rather than a signed artifact. When the pin was taken there was no GitHub release object
-and no Guix attestations for 29.4.3. For 29.4.2 both appeared weeks after the tag
-(release tarballs with `SHA256SUMS.asc` under `test.bitcoinknots.org`, attestations in
-`bitcoinknots/guix.sigs`). Switching to signed tarballs (as Retropex's POW package does)
-is a trust-model decision that has not been made; the build here is unchanged.
+rather than a signed artifact. 29.5 has a GitHub release with signed tarballs and Guix
+attestations in `bitcoinknots/guix.sigs` from three builders (chrisguida, kwsantiago,
+luke-jr). Switching to signed tarballs (as Retropex's POW package does) is a trust-model
+decision that has not been made; the build here is unchanged.
 
 **Versioning.** From `29.4.3:0` the package version is the Knots version it carries
-(`x.y.z`) followed by this package's own revision, which restarts at 0 for each new Knots
-release. Knots's datestamp (`knots20260508`) does not fit the version format and stays in
-the release notes. Releases up to `1.0.0:42` used a fixed `1.0.0`; `29.4.3:0` sorts above
-all of them, so updates and dependents' ranges (`>=1.0.0:N`) are unaffected. There is no
-flavor prefix: this package has its own id, and a flavored version would fail those
-unflavored ranges. The Docker image built from this repo is tagged with the same version,
-dotted (`paulscode/knots-blake2b:29.4.3.0`); the Umbrel app keeps its own fourth number.
+(`x.y.z`, so 29.5 is `29.5.0`) followed by this package's own revision, which restarts
+at 0 for each new Knots release. Knots's datestamp (`knots20260508`) does not fit the
+version format and stays in the release notes. Releases up to `1.0.0:42` used a fixed
+`1.0.0`; `29.4.3:0` sorts above all of them, so updates and dependents' ranges
+(`>=1.0.0:N`) are unaffected. There is no flavor prefix: this package has its own id,
+and a flavored version would fail those unflavored ranges. The Docker image built from
+this repo is tagged with the same version, dotted (`paulscode/knots-blake2b:29.5.0.0`);
+the Umbrel app keeps its own fourth number.
 
 **The pin lives in exactly one place: the `KNOTS_REF` ARG default in the
 [Dockerfile](Dockerfile).** It is deliberately not set as a `buildArg` in
@@ -106,13 +108,11 @@ dotted (`paulscode/knots-blake2b:29.4.3.0`); the Umbrel app keeps its own fourth
 build silently fetched an orphaned commit while the Dockerfile said otherwise. Bump it
 in the Dockerfile and nowhere else. See [UPDATING.md](UPDATING.md).
 
-**This image does not use the signed release for this tag.** When the pin was taken,
-`bitcoinknots.org` and the GitHub releases page both stopped at `29.4.knots20260508`.
-Signed tarballs have since appeared (see above), but this image still builds from
-source, which trades the signed-release trust model for a pinned git commit. The tag does carry reproducible-build
-attestations in `bitcoinknots/guix.sigs` from seven builders, which is not a signature
-over anything this image downloads but does mean independent parties rebuilt this
-commit and agreed on the output.
+**This image does not use the signed release for this tag.** It builds the pinned commit
+from source, which trades the signed-release trust model for a pinned git commit. The
+tag's reproducible-build attestations in `bitcoinknots/guix.sigs` (three builders) are
+not a signature over anything this image downloads, but they do mean independent
+parties rebuilt this commit and agreed on the output.
 
 `-DRDTS_CONSENT` is **not** passed and must not be: the option exists in
 `luke-jr/bitcoin` but not in this tag.

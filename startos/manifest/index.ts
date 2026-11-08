@@ -5,7 +5,7 @@ export const manifest = setupManifest({
   // Deliberately NOT `bitcoind`: that is the official Bitcoin Knots package, and
   // both must be installable at once. The id is effectively immutable (the
   // registry indexes by (id, version, sighash) and there is no rename path), so
-  // the chain was kept out of it and carried in the title instead. See PLAN Q12.
+  // the chain was kept out of it and carried in the title instead.
   // That decision paid off: this package has run regtest, then testnet4, then
   // mainnet, and now mainnet alone. The title followed each time; the id could
   // not have.
