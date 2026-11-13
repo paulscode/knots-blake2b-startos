@@ -445,6 +445,8 @@ export default {
     3135: 'Poniéndose al día: ${count} bloques de retraso',
     3136: 'Peso reservado del bloque',
     3137: 'Peso de bloque que las plantillas de bloque dejan libre para la transacción coinbase. El software de minería que construye una coinbase grande, como un pool que paga a muchas salidas, necesita más que el valor predeterminado.',
+    3138: 'Bitcoin no respondió a esta comprobación en un minuto',
+    3139: 'El enrutador I2P no respondió en un minuto',
   } satisfies LangDict,
   de_DE: {
     // main.ts
@@ -890,6 +892,8 @@ export default {
     3135: 'Holt auf: ${count} Blöcke im Rückstand',
     3136: 'Reserviertes Blockgewicht',
     3137: 'Blockgewicht, das Blockvorlagen für die Coinbase-Transaktion freihalten. Mining-Software, die eine große Coinbase erstellt, etwa ein Pool, der an viele Ausgaben auszahlt, benötigt mehr als den Standardwert.',
+    3138: 'Bitcoin hat auf diese Prüfung nicht innerhalb einer Minute geantwortet',
+    3139: 'Der I2P-Router hat nicht innerhalb einer Minute geantwortet',
   } satisfies LangDict,
   pl_PL: {
     // main.ts
@@ -1335,6 +1339,8 @@ export default {
     3135: 'Nadrabianie zaległości: brakuje ${count} bloków',
     3136: 'Zarezerwowana waga bloku',
     3137: 'Waga bloku, którą szablony bloków pozostawiają wolną dla transakcji coinbase. Oprogramowanie wydobywcze tworzące dużą transakcję coinbase, na przykład pula wypłacająca na wiele wyjść, potrzebuje więcej niż wartość domyślna.',
+    3138: 'Bitcoin nie odpowiedział na to sprawdzenie w ciągu minuty',
+    3139: 'Router I2P nie odpowiedział w ciągu minuty',
   } satisfies LangDict,
   fr_FR: {
     // main.ts
@@ -1780,5 +1786,7 @@ export default {
     3135: 'Rattrapage en cours : ${count} blocs de retard',
     3136: 'Poids de bloc réservé',
     3137: 'Poids de bloc que les modèles de bloc laissent libre pour la transaction coinbase. Un logiciel de minage qui construit une coinbase volumineuse, comme un pool qui paie de nombreuses sorties, a besoin de plus que la valeur par défaut.',
+    3138: "Bitcoin n'a pas répondu à cette vérification en une minute",
+    3139: "Le routeur I2P n'a pas répondu en une minute",
   } satisfies LangDict,
 }

@@ -7,6 +7,7 @@ import { i2pdConfFile } from './fileModels/i2pd.conf'
 import { storeJson } from './fileModels/store.json'
 import { i18n } from './i18n'
 import { CHURN_FAMILY_COUNT, i2pdLogFilter } from './i2pdLogFilter'
+import { bounded } from './boundedCheck'
 import { sdk } from './sdk'
 import {
   bitcoinCliArgs,
@@ -50,6 +51,8 @@ const i2pControlRpc = (method: string, params: Record<string, unknown>) =>
       },
     )
     req.on('error', reject)
+    // No reply in 10 s rejects, which the I2P check reads as still starting.
+    req.setTimeout(10_000, () => req.destroy(new Error('I2PControl timed out')))
     req.write(body)
     req.end()
   })
@@ -194,6 +197,9 @@ export const main = sdk.setupMain(async ({ effects }) => {
       const res = await bitcoindSub.exec([
         ...bitcoinCliArgs({ prune: !!bitcoinConf.prune }),
         '-rpcconnect=127.0.0.1',
+        // Below CHECK_TIMEOUT_MS, so a slow node gives up here first and the
+        // check reports it, instead of the 15-minute default holding the run.
+        '-rpcclienttimeout=50',
         ...cmd,
       ])
       if (
@@ -306,26 +312,32 @@ export const main = sdk.setupMain(async ({ effects }) => {
       },
       ready: {
         display: 'RPC',
-        fn: async () => {
-          try {
-            await access(`${bitcoindSub.rootfs}${rpcCookiePath}`)
-          } catch {
-            console.log('Waiting for cookie to be created')
-            return {
-              message: i18n('The Bitcoin RPC Interface is not ready'),
-              result: 'starting',
+        fn: bounded(
+          async () => {
+            try {
+              await access(`${bitcoindSub.rootfs}${rpcCookiePath}`)
+            } catch {
+              console.log('Waiting for cookie to be created')
+              return {
+                message: i18n('The Bitcoin RPC Interface is not ready'),
+                result: 'starting',
+              }
             }
-          }
 
-          return sdk.healthCheck.checkPortListening(
-            effects,
-            bitcoinConf.prune ? rpcPortPruned : rpcPort,
-            {
-              successMessage: i18n('The Bitcoin RPC Interface is ready'),
-              errorMessage: i18n('The Bitcoin RPC Interface is not ready'),
-            },
-          )
-        },
+            return sdk.healthCheck.checkPortListening(
+              effects,
+              bitcoinConf.prune ? rpcPortPruned : rpcPort,
+              {
+                successMessage: i18n('The Bitcoin RPC Interface is ready'),
+                errorMessage: i18n('The Bitcoin RPC Interface is not ready'),
+              },
+            )
+          },
+          () => ({
+            result: 'starting' as const,
+            message: i18n('The Bitcoin RPC Interface is not ready'),
+          }),
+        ),
       },
       requires: ['nocow'],
     })
@@ -354,102 +366,109 @@ export const main = sdk.setupMain(async ({ effects }) => {
           starting: 5_000,
           failure: 5_000,
         }),
-        fn: async () => {
-          const read = async (method: string) => {
-            const r = await bitcoindSub.exec([
-              ...bitcoinCliArgs({ prune: !!bitcoinConf.prune }),
-              '-rpcconnect=127.0.0.1',
-              method,
-            ])
-            if (r.exitCode !== 0 || typeof r.stdout !== 'string') return null
-            try {
-              return JSON.parse(r.stdout)
-            } catch {
-              return null
+        fn: bounded(
+          async () => {
+            const read = async (method: string) => {
+              const r = await bitcoindSub.exec([
+                ...bitcoinCliArgs({ prune: !!bitcoinConf.prune }),
+                '-rpcconnect=127.0.0.1',
+                '-rpcclienttimeout=50',
+                method,
+              ])
+              if (r.exitCode !== 0 || typeof r.stdout !== 'string') return null
+              try {
+                return JSON.parse(r.stdout)
+              } catch {
+                return null
+              }
             }
-          }
 
-          const info = await read('getblockchaininfo')
-          if (!info) {
-            return {
-              result: 'starting' as const,
-              message: i18n('Waiting for the node to answer RPC'),
+            const info = await read('getblockchaininfo')
+            if (!info) {
+              return {
+                result: 'starting' as const,
+                message: i18n('Waiting for the node to answer RPC'),
+              }
             }
-          }
 
-          const deployments = await read('getdeploymentinfo')
-          // rc3 renamed this top-level key from `hardfork` to `blake2b`
-          // (rpc/blockchain.cpp, the `deploymentinfo.pushKV` call); its contents
-          // are unchanged. Read either, so a repin in either direction cannot
-          // turn this into a confident wrong answer claiming the node is not
-          // running the fork.
-          const hardfork = deployments?.blake2b ?? deployments?.hardfork
-          if (!hardfork) {
-            return {
-              result: 'failure' as const,
-              message: i18n(
-                'This node reports no BLAKE2b activation. It is not running the fork.',
-              ),
-            }
-          }
-
-          const blocks: number = info.blocks ?? 0
-          const headers: number = info.headers ?? 0
-          const activation: number = hardfork.height
-
-          // A repin to a different tag could move this. It is consensus, so it
-          // should be loud rather than inferred from a stall later.
-          if (activation !== mainnetActivationHeight) {
-            return {
-              result: 'failure' as const,
-              message: `${i18n('This build activates BLAKE2b at a different height than expected on mainnet')}: ${activation} != ${mainnetActivationHeight}`,
-            }
-          }
-
-          // Height, not `hardfork.active`. Measured: `active` flips to true one
-          // block *before* the activation height, because it reports whether the
-          // next block is subject to the rule. A node stalled at 961639
-          // therefore has `active: true`, so keying success off it would report
-          // "Following the BLAKE2b chain" for exactly the situation this check
-          // exists to catch.
-          if (blocks >= activation) {
-            return {
-              result: 'success' as const,
-              message: `${i18n('Following the BLAKE2b chain')} (${blocks})`,
-            }
-          }
-
-          if (headers > blocks) {
-            return {
-              result: 'loading' as const,
-              message: `${i18n('Syncing')} ${blocks}/${headers}`,
-            }
-          }
-
-          // One block short of the fork with no more headers to apply. Only
-          // reported after several consecutive observations, because a healthy
-          // node passes through this state briefly on its way across.
-          if (blocks === activation - 1) {
-            stalledFor = stalledAt === blocks ? stalledFor + 1 : 0
-            stalledAt = blocks
-            if (stalledFor >= STALL_OBSERVATIONS) {
+            const deployments = await read('getdeploymentinfo')
+            // rc3 renamed this top-level key from `hardfork` to `blake2b`
+            // (rpc/blockchain.cpp, the `deploymentinfo.pushKV` call); its contents
+            // are unchanged. Read either, so a repin in either direction cannot
+            // turn this into a confident wrong answer claiming the node is not
+            // running the fork.
+            const hardfork = deployments?.blake2b ?? deployments?.hardfork
+            if (!hardfork) {
               return {
                 result: 'failure' as const,
                 message: i18n(
-                  'Stalled just below the BLAKE2b activation height, which means this node has no peers on the fork. It normally finds them through the DNS seeds. Add one directly under Peers if your network blocks DNS.',
+                  'This node reports no BLAKE2b activation. It is not running the fork.',
                 ),
               }
             }
-          } else {
-            stalledFor = 0
-            stalledAt = null
-          }
 
-          return {
-            result: 'loading' as const,
-            message: `${i18n('Before the BLAKE2b activation')} ${blocks}/${activation}`,
-          }
-        },
+            const blocks: number = info.blocks ?? 0
+            const headers: number = info.headers ?? 0
+            const activation: number = hardfork.height
+
+            // A repin to a different tag could move this. It is consensus, so it
+            // should be loud rather than inferred from a stall later.
+            if (activation !== mainnetActivationHeight) {
+              return {
+                result: 'failure' as const,
+                message: `${i18n('This build activates BLAKE2b at a different height than expected on mainnet')}: ${activation} != ${mainnetActivationHeight}`,
+              }
+            }
+
+            // Height, not `hardfork.active`. Measured: `active` flips to true one
+            // block *before* the activation height, because it reports whether the
+            // next block is subject to the rule. A node stalled at 961639
+            // therefore has `active: true`, so keying success off it would report
+            // "Following the BLAKE2b chain" for exactly the situation this check
+            // exists to catch.
+            if (blocks >= activation) {
+              return {
+                result: 'success' as const,
+                message: `${i18n('Following the BLAKE2b chain')} (${blocks})`,
+              }
+            }
+
+            if (headers > blocks) {
+              return {
+                result: 'loading' as const,
+                message: `${i18n('Syncing')} ${blocks}/${headers}`,
+              }
+            }
+
+            // One block short of the fork with no more headers to apply. Only
+            // reported after several consecutive observations, because a healthy
+            // node passes through this state briefly on its way across.
+            if (blocks === activation - 1) {
+              stalledFor = stalledAt === blocks ? stalledFor + 1 : 0
+              stalledAt = blocks
+              if (stalledFor >= STALL_OBSERVATIONS) {
+                return {
+                  result: 'failure' as const,
+                  message: i18n(
+                    'Stalled just below the BLAKE2b activation height, which means this node has no peers on the fork. It normally finds them through the DNS seeds. Add one directly under Peers if your network blocks DNS.',
+                  ),
+                }
+              }
+            } else {
+              stalledFor = 0
+              stalledAt = null
+            }
+
+            return {
+              result: 'loading' as const,
+              message: `${i18n('Before the BLAKE2b activation')} ${blocks}/${activation}`,
+            }
+          },
+          () => ({
+            result: 'starting' as const,
+            message: i18n('Bitcoin did not answer this check within a minute'),
+          }),
+        ),
       },
     })
     .addHealthCheck('sync-progress', {
@@ -459,70 +478,76 @@ export const main = sdk.setupMain(async ({ effects }) => {
           starting: 5_000,
           failure: 5_000,
         }),
-        fn: async () => {
-          const res = await probe<GetBlockchainInfo>('getblockchaininfo')
-          if ('health' in res) return res.health
+        fn: bounded(
+          async () => {
+            const res = await probe<GetBlockchainInfo>('getblockchaininfo')
+            if ('health' in res) return res.health
 
-          const info = res.value
-          const syncing = {
-            message: i18n('Syncing blocks...${percentage}%', {
-              percentage: (info.verificationprogress * 100).toFixed(2),
-            }),
-            result: 'loading' as const,
-          }
-          const synced = {
-            message: i18n('Bitcoin is fully synced'),
-            result: 'success' as const,
-          }
-
-          // bitcoind latches initialblockdownload false for the life of the
-          // process, so a node that falls behind later still reports false.
-          // Two or more headers ahead is behind; one is a new block between
-          // its header and its connection (Core's IsCurrentForFeeEstimation
-          // draws the same line).
-          if (!info.initialblockdownload) {
-            const behind = info.headers - info.blocks
-            if (behind < 2) return synced
-            return {
-              result: 'loading' as const,
-              message: i18n('Catching up: ${count} blocks behind', {
-                count: String(behind),
+            const info = res.value
+            const syncing = {
+              message: i18n('Syncing blocks...${percentage}%', {
+                percentage: (info.verificationprogress * 100).toFixed(2),
               }),
-            }
-          }
-
-          // At genesis nothing sits above the tip to find yet either, and
-          // verificationprogress is still 0 — the header chain is the only
-          // thing moving.
-          if (info.blocks === 0)
-            return {
               result: 'loading' as const,
-              message: info.headers
-                ? // A string, so the count shows as plain digits. SDK 2.0.9's
-                  // i18n threw on a number in the container's C locale; 3.x
-                  // no longer does, but a string is still the plain form.
-                  i18n('Syncing block headers: ${count}', {
-                    count: String(info.headers),
-                  })
-                : i18n('Syncing block headers…'),
+            }
+            const synced = {
+              message: i18n('Bitcoin is fully synced'),
+              result: 'success' as const,
             }
 
-          // A tip list that cannot be read leaves `active` unset, which reads
-          // as syncing — the safe direction for a progress meter.
-          const tipsRes = await probe<ChainTip[]>('getchaintips')
-          const tips = 'value' in tipsRes ? tipsRes.value : []
-          const active = tips.find((t) => t.status === 'active')
+            // bitcoind latches initialblockdownload false for the life of the
+            // process, so a node that falls behind later still reports false.
+            // Two or more headers ahead is behind; one is a new block between
+            // its header and its connection (Core's IsCurrentForFeeEstimation
+            // draws the same line).
+            if (!info.initialblockdownload) {
+              const behind = info.headers - info.blocks
+              if (behind < 2) return synced
+              return {
+                result: 'loading' as const,
+                message: i18n('Catching up: ${count} blocks behind', {
+                  count: String(behind),
+                }),
+              }
+            }
 
-          return !active ||
-            tips.some(
-              (t) =>
-                t.status !== 'active' &&
-                t.status !== 'invalid' &&
-                t.height > active.height,
-            )
-            ? syncing
-            : synced
-        },
+            // At genesis nothing sits above the tip to find yet either, and
+            // verificationprogress is still 0 — the header chain is the only
+            // thing moving.
+            if (info.blocks === 0)
+              return {
+                result: 'loading' as const,
+                message: info.headers
+                  ? // A string, so the count shows as plain digits. SDK 2.0.9's
+                    // i18n threw on a number in the container's C locale; 3.x
+                    // no longer does, but a string is still the plain form.
+                    i18n('Syncing block headers: ${count}', {
+                      count: String(info.headers),
+                    })
+                  : i18n('Syncing block headers…'),
+              }
+
+            // A tip list that cannot be read leaves `active` unset, which reads
+            // as syncing — the safe direction for a progress meter.
+            const tipsRes = await probe<ChainTip[]>('getchaintips')
+            const tips = 'value' in tipsRes ? tipsRes.value : []
+            const active = tips.find((t) => t.status === 'active')
+
+            return !active ||
+              tips.some(
+                (t) =>
+                  t.status !== 'active' &&
+                  t.status !== 'invalid' &&
+                  t.height > active.height,
+              )
+              ? syncing
+              : synced
+          },
+          () => ({
+            result: 'starting' as const,
+            message: i18n('Bitcoin did not answer this check within a minute'),
+          }),
+        ),
       },
       requires: ['node'],
     })
@@ -568,50 +593,58 @@ export const main = sdk.setupMain(async ({ effects }) => {
           starting: 5_000,
           failure: 5_000,
         }),
-        fn: async () => {
-          // Keyed by bitcoind's own name for each index; only the enabled
-          // ones are listed, so an empty object means none are.
-          const res =
-            await probe<
-              Record<string, { synced: boolean; best_block_height: number }>
-            >('getindexinfo')
-          if ('health' in res) return res.health
+        fn: bounded(
+          async () => {
+            // Keyed by bitcoind's own name for each index; only the enabled
+            // ones are listed, so an empty object means none are.
+            const res =
+              await probe<
+                Record<string, { synced: boolean; best_block_height: number }>
+              >('getindexinfo')
+            if ('health' in res) return res.health
 
-          const entries = Object.entries(res.value)
+            const entries = Object.entries(res.value)
 
-          if (!entries.length)
+            if (!entries.length)
+              return {
+                result: 'disabled' as const,
+                message: i18n('No indexes are enabled'),
+              }
+
+            // Report the furthest behind; as each finishes the next takes over.
+            const behind = entries
+              .filter(([, index]) => !index.synced)
+              .sort(
+                (a, b) => a[1].best_block_height - b[1].best_block_height,
+              )[0]
+
+            if (!behind)
+              return {
+                result: 'success' as const,
+                message: i18n('All enabled indexes are up to date'),
+              }
+
+            const tipRes = await probe<GetBlockchainInfo>('getblockchaininfo')
+            if ('health' in tipRes) return tipRes.health
+
+            const tip = tipRes.value.blocks
+
             return {
-              result: 'disabled' as const,
-              message: i18n('No indexes are enabled'),
+              result: 'loading' as const,
+              message: i18n('Building ${index}: ${percentage}%', {
+                index: indexLabel(behind[0]),
+                percentage: (tip
+                  ? (behind[1].best_block_height / tip) * 100
+                  : 0
+                ).toFixed(2),
+              }),
             }
-
-          // Report the furthest behind; as each finishes the next takes over.
-          const behind = entries
-            .filter(([, index]) => !index.synced)
-            .sort((a, b) => a[1].best_block_height - b[1].best_block_height)[0]
-
-          if (!behind)
-            return {
-              result: 'success' as const,
-              message: i18n('All enabled indexes are up to date'),
-            }
-
-          const tipRes = await probe<GetBlockchainInfo>('getblockchaininfo')
-          if ('health' in tipRes) return tipRes.health
-
-          const tip = tipRes.value.blocks
-
-          return {
-            result: 'loading' as const,
-            message: i18n('Building ${index}: ${percentage}%', {
-              index: indexLabel(behind[0]),
-              percentage: (tip
-                ? (behind[1].best_block_height / tip) * 100
-                : 0
-              ).toFixed(2),
-            }),
-          }
-        },
+          },
+          () => ({
+            result: 'starting' as const,
+            message: i18n('Bitcoin did not answer this check within a minute'),
+          }),
+        ),
       },
       requires: ['node'],
     })
@@ -634,60 +667,66 @@ export const main = sdk.setupMain(async ({ effects }) => {
           failure: 5_000,
         }),
         gracePeriod: 5 * 60 * 1000,
-        fn: async () => {
-          const res = await probe<GetNetworkInfo>('getnetworkinfo')
-          if ('health' in res) return res.health
+        fn: bounded(
+          async () => {
+            const res = await probe<GetNetworkInfo>('getnetworkinfo')
+            if ('health' in res) return res.health
 
-          if (!res.value.networkactive)
+            if (!res.value.networkactive)
+              return {
+                result: 'disabled' as const,
+                message: i18n('Peer-to-peer networking is turned off'),
+              }
+
+            const peersRes = await probe<
+              {
+                inbound: boolean
+                connection_type?: string
+                servicesnames?: string[]
+              }[]
+            >('getpeerinfo')
+            if ('health' in peersRes) return peersRes.health
+
+            // Feelers and addr-fetch connections are transient and carry no
+            // blocks, so they count as neither.
+            const outbound = peersRes.value.filter(
+              (p) =>
+                !p.inbound &&
+                p.connection_type !== 'feeler' &&
+                p.connection_type !== 'addr-fetch',
+            )
+            const onChain = outbound.filter((p) =>
+              (p.servicesnames ?? []).includes('BLAKE2B?'),
+            ).length
+            const others = outbound.length - onChain
+            const inbound = peersRes.value.filter((p) => p.inbound).length
+
+            if (!onChain)
+              return {
+                result: 'failure' as const,
+                message: i18n(
+                  'No outbound peers on the BLAKE2b chain (other outbound: ${others}, inbound: ${inbound})',
+                  { others: String(others), inbound: String(inbound) },
+                ),
+              }
+
             return {
-              result: 'disabled' as const,
-              message: i18n('Peer-to-peer networking is turned off'),
-            }
-
-          const peersRes = await probe<
-            {
-              inbound: boolean
-              connection_type?: string
-              servicesnames?: string[]
-            }[]
-          >('getpeerinfo')
-          if ('health' in peersRes) return peersRes.health
-
-          // Feelers and addr-fetch connections are transient and carry no
-          // blocks, so they count as neither.
-          const outbound = peersRes.value.filter(
-            (p) =>
-              !p.inbound &&
-              p.connection_type !== 'feeler' &&
-              p.connection_type !== 'addr-fetch',
-          )
-          const onChain = outbound.filter((p) =>
-            (p.servicesnames ?? []).includes('BLAKE2B?'),
-          ).length
-          const others = outbound.length - onChain
-          const inbound = peersRes.value.filter((p) => p.inbound).length
-
-          if (!onChain)
-            return {
-              result: 'failure' as const,
+              result: 'success' as const,
               message: i18n(
-                'No outbound peers on the BLAKE2b chain (other outbound: ${others}, inbound: ${inbound})',
-                { others: String(others), inbound: String(inbound) },
+                'BLAKE2b outbound: ${outbound}, other outbound: ${others}, inbound: ${inbound}',
+                {
+                  outbound: String(onChain),
+                  others: String(others),
+                  inbound: String(inbound),
+                },
               ),
             }
-
-          return {
-            result: 'success' as const,
-            message: i18n(
-              'BLAKE2b outbound: ${outbound}, other outbound: ${others}, inbound: ${inbound}',
-              {
-                outbound: String(onChain),
-                others: String(others),
-                inbound: String(inbound),
-              },
-            ),
-          }
-        },
+          },
+          () => ({
+            result: 'starting' as const,
+            message: i18n('Bitcoin did not answer this check within a minute'),
+          }),
+        ),
       },
       requires: ['node'],
     })
@@ -737,79 +776,86 @@ export const main = sdk.setupMain(async ({ effects }) => {
           // states that will not resolve on their own now report `failure`
           // and say what is wrong.
           gracePeriod: 5 * 60 * 1000,
-          fn: async () => {
-            try {
-              // i2pd never validates the I2PControl token (PurpleI2P/i2pd#2138)
-              // and logs an error for `Token` as an unknown RouterInfo field.
-              const info = await i2pControlRpc('RouterInfo', {
-                'i2p.router.net.status': null,
-                'i2p.router.netdb.knownpeers': null,
-                'i2p.router.netdb.activepeers': null,
-              })
-              const netStatus = info?.result?.['i2p.router.net.status']
-              const knownPeers = info?.result?.['i2p.router.netdb.knownpeers']
-              const activePeers = info?.result?.['i2p.router.netdb.activepeers']
+          fn: bounded(
+            async () => {
+              try {
+                // i2pd never validates the I2PControl token (PurpleI2P/i2pd#2138)
+                // and logs an error for `Token` as an unknown RouterInfo field.
+                const info = await i2pControlRpc('RouterInfo', {
+                  'i2p.router.net.status': null,
+                  'i2p.router.netdb.knownpeers': null,
+                  'i2p.router.netdb.activepeers': null,
+                })
+                const netStatus = info?.result?.['i2p.router.net.status']
+                const knownPeers = info?.result?.['i2p.router.netdb.knownpeers']
+                const activePeers =
+                  info?.result?.['i2p.router.netdb.activepeers']
 
-              // A reply without a usable `result` (e.g. a JSON-RPC error
-              // object) used to slip through every guard below — undefined
-              // compares false against numbers — and report success. Fail
-              // toward `starting` instead.
-              if (info?.result == null || netStatus == null) {
+                // A reply without a usable `result` (e.g. a JSON-RPC error
+                // object) used to slip through every guard below — undefined
+                // compares false against numbers — and report success. Fail
+                // toward `starting` instead.
+                if (info?.result == null || netStatus == null) {
+                  return {
+                    result: 'starting' as const,
+                    message: i18n('Starting the I2P router'),
+                  }
+                }
+
+                // An empty netDb means reseed never landed — the router has
+                // nothing to connect to and will not recover on its own. It
+                // reseeds over HTTPS by hostname, so the usual cause is that
+                // the server cannot resolve names at all.
+                if (knownPeers <= 1) {
+                  return {
+                    result: 'failure' as const,
+                    message: i18n(
+                      'No peers found. The router could not reach a reseed server, which usually means this server cannot resolve DNS. Check System > DNS Servers.',
+                    ),
+                  }
+                }
+
+                // net.status 0-7 are operational (OK, testing, firewalled, hidden, warnings)
+                // net.status 8+ are errors (I2CP, clock skew, no peers, etc.)
+                if (netStatus >= 8) {
+                  return {
+                    result: 'failure' as const,
+                    message: i18n(
+                      'The I2P router reported error status ${status}',
+                      {
+                        status: String(netStatus),
+                      },
+                    ),
+                  }
+                }
+
+                // Reseeded, but no tunnels yet — this one does resolve itself.
+                if (activePeers === 0) {
+                  return {
+                    result: 'starting' as const,
+                    message: i18n('Building the network database'),
+                  }
+                }
+
+                return {
+                  result: 'success' as const,
+                  message:
+                    bitcoinConf.raw?.i2pacceptincoming !== false
+                      ? i18n('Inbound and outbound connections')
+                      : i18n('Outbound connections only'),
+                }
+              } catch {
                 return {
                   result: 'starting' as const,
                   message: i18n('Starting the I2P router'),
                 }
               }
-
-              // An empty netDb means reseed never landed — the router has
-              // nothing to connect to and will not recover on its own. It
-              // reseeds over HTTPS by hostname, so the usual cause is that
-              // the server cannot resolve names at all.
-              if (knownPeers <= 1) {
-                return {
-                  result: 'failure' as const,
-                  message: i18n(
-                    'No peers found. The router could not reach a reseed server, which usually means this server cannot resolve DNS. Check System > DNS Servers.',
-                  ),
-                }
-              }
-
-              // net.status 0-7 are operational (OK, testing, firewalled, hidden, warnings)
-              // net.status 8+ are errors (I2CP, clock skew, no peers, etc.)
-              if (netStatus >= 8) {
-                return {
-                  result: 'failure' as const,
-                  message: i18n(
-                    'The I2P router reported error status ${status}',
-                    {
-                      status: String(netStatus),
-                    },
-                  ),
-                }
-              }
-
-              // Reseeded, but no tunnels yet — this one does resolve itself.
-              if (activePeers === 0) {
-                return {
-                  result: 'starting' as const,
-                  message: i18n('Building the network database'),
-                }
-              }
-
-              return {
-                result: 'success' as const,
-                message:
-                  bitcoinConf.raw?.i2pacceptincoming !== false
-                    ? i18n('Inbound and outbound connections')
-                    : i18n('Outbound connections only'),
-              }
-            } catch {
-              return {
-                result: 'starting' as const,
-                message: i18n('Starting the I2P router'),
-              }
-            }
-          },
+            },
+            () => ({
+              result: 'starting' as const,
+              message: i18n('The I2P router did not answer within a minute'),
+            }),
+          ),
         },
         requires: [],
       }
@@ -933,11 +979,17 @@ export const main = sdk.setupMain(async ({ effects }) => {
       },
       ready: {
         display: i18n('RPC Proxy'),
-        fn: () =>
-          sdk.healthCheck.checkPortListening(effects, rpcPort, {
-            successMessage: i18n('The Bitcoin RPC Proxy is ready'),
-            errorMessage: i18n('The Bitcoin RPC Proxy is not ready'),
+        fn: bounded(
+          () =>
+            sdk.healthCheck.checkPortListening(effects, rpcPort, {
+              successMessage: i18n('The Bitcoin RPC Proxy is ready'),
+              errorMessage: i18n('The Bitcoin RPC Proxy is not ready'),
+            }),
+          () => ({
+            result: 'starting' as const,
+            message: i18n('The Bitcoin RPC Proxy is not ready'),
           }),
+        ),
       },
       requires: ['node' as const],
     }

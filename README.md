@@ -346,6 +346,21 @@ assurance and is stated under Upstream above rather than glossed.
   after a five-minute grace from startup; disabled while networking is off. Both came from bitcoin-core-startos
   29.4:21/29.4:22 in 1.0.0:40. Neither replaces the `chain` check, which is still the
   one that names a stall below the activation height.
+- **Every asynchronous check runs through `bounded`** (`startos/boundedCheck.ts`), as of
+  29.5.0:1. start-sdk awaits a check's `fn` with no limit and looks at its abort signal
+  only afterwards, and a stop terms each check before the `node` daemon it requires. So
+  one call that never returned froze its check at Starting (in `db dump`, `result:
+  starting, message: null`, a check that has never reported) and later blocked every
+  stop: the proxy and i2pd went down, bitcoind never logged "Shutdown: In progress",
+  an update sat at Installing 80% and the OS restart hung (#4). `SubContainer.exec`'s
+  own 30 s timeout did not help, because it is armed only after `exec` waits, unbounded,
+  for its file mounts to sync. `bounded` gives each run a minute, repeats the last real
+  result for two unanswered runs, so one slow answer does not pause the proxy, and then
+  reports the check unanswered. It never starts a second run while one is pending. The
+  checks' own bitcoin-cli calls carry `-rpcclienttimeout=50`; the wallet actions, which
+  can legitimately run long, do not. To finish a stop stuck this way on an older
+  version, send bitcoind SIGTERM inside the `bitcoind-sub` subcontainer, or restart
+  the server.
 - **I2P log lines** are filtered by `startos/i2pdLogFilter.ts`, which drops i2pd's
   known routine network-weather messages and prefixes the rest `[i2pd]`. Unknown
   messages always pass. Its tests run with `npm test`, which needs Node 22.6 or later

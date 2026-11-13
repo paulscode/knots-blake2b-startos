@@ -394,6 +394,8 @@ const dict = {
   'Catching up: ${count} blocks behind': 3135,
   'Block Reserved Weight': 3136,
   'Block weight that block templates leave free for the coinbase transaction. Mining software that builds a large coinbase, such as a pool paying many outputs, needs more than the default.': 3137,
+  'Bitcoin did not answer this check within a minute': 3138,
+  'The I2P router did not answer within a minute': 3139,
 } as const
 
 /**
