@@ -243,12 +243,16 @@ behind it on loopback 58443. The proxy answers for blocks this node has dropped 
 fetching them from peers and validating them against this node, so a dependent sees a
 node that behaves as though it were archival, with no change on its side.
 
-The image is `paulscode/btc-rpc-proxy:v0.8.2-blake2b.2`: upstream v0.8.2 with
+The image is `paulscode/btc-rpc-proxy:v0.8.4-blake2b.1`: upstream v0.8.4 with
 [PR #33](https://github.com/Start9Labs/btc-rpc-proxy/pull/33) (BLAKE2b headers), an
 optional `difficulty` field (this chain's Knots reports `difficulty_blake2b` for v2
 headers), a single flight so concurrent requests for one pruned block share a
 fetch, and the `NODE_BLAKE2B` service bit in its handshake with peers whenever this
-node advertises it. Knots 29.4.3 serves nothing past the chain split to a peer
+node advertises it. v0.8.4 brings upstream's security fixes: a block fetched from a
+peer with a transaction repeated is refused (CVE-2012-2459; the repeat leaves the hash,
+merkle root and witness commitment unchanged, so it passed every other check and was
+cached ahead of bitcoind), the rpcauth compare runs in constant time, a refused login
+waits before its 401, and the p2p user agent no longer names the proxy. Knots 29.4.3 serves nothing past the chain split to a peer
 without that bit and does not reply at all, so `v0.8.2-blake2b.1`, which advertised
 no services, timed out on every pruned block after 961631. Upstream v0.8.1 took [PR #34](https://github.com/Start9Labs/btc-rpc-proxy/pull/34),
 which the v0.8.0 line had to carry. #34 is two upstream defects rather than anything
@@ -408,8 +412,20 @@ as an unknown nested key, dropped on the next write, and the node would come bac
 default binds.
 
 **RPC credentials are not stored by default.** With no `rpcuser`/`rpcpassword`,
-bitcoind generates `/data/.cookie` and dependents read it through a read-only mount of
-this volume, so neither side generates, stores or hands around a secret. **Generate
+bitcoind generates `/data/.cookie` and dependents read it through a read-only mount,
+so neither side generates, stores or hands around a secret.
+
+**Dependents can mount either of two volumes for the cookie.** `main`, the whole data
+directory, is what every dependent mounts today: the cookie is at its root. From
+29.5.0:2 the `public` volume also carries a copy, the same volume, file names and
+behaviour as Start9's Bitcoin Core from 31.2:4, so a dependent can read either node the
+same way and see nothing else of bitcoind's data, wallets included. The `publish-rpc`
+oneshot writes `.cookie` (0600) and `prune` (the setting, `0` when unpruned) through a
+temp file and a rename once the node is ready, and `main.ts` deletes the copy at the
+start of every run, so a missing cookie in either volume still means the node is down.
+`public` is never mounted in bitcoind and is not backed up. Do not remove the cookie
+from `main`: dependents move to `public` one at a time, choosing by whether the node's
+manifest declares it. **Generate
 RPC User** adds an `rpcauth=` line for a remote wallet; bitcoind still writes the
 cookie alongside it, so adding one does not break anything already connected.
 

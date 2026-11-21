@@ -76,6 +76,21 @@ export const rootDir = '/data'
 export const rpccookiefile = '.cookie'
 
 /**
+ * What this node publishes for dependents, matching Start9's Bitcoin Core from
+ * 31.2:4 so a dependent reads either node the same way: a `public` volume
+ * holding a copy of the cookie and of the prune setting. A dependent that
+ * mounts it read-only sees the cookie and nothing else of bitcoind's data
+ * directory, its wallets included.
+ *
+ * bitcoind's own `.cookie` in `main` stays where it was, and so does every
+ * dependent still mounting `main` to read it.
+ */
+export const rpcVolumeId = 'public'
+export const rpcCookieName = '.cookie'
+/** bitcoind's `prune` setting, `0` when unpruned. */
+export const rpcPruneName = 'prune'
+
+/**
  * The height at which BLAKE2b activates on mainnet, compiled into `CMainParams`.
  * Not settable: `-testactivationheight` is read only by `CRegTestParams`.
  *

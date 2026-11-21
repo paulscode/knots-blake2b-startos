@@ -20,7 +20,10 @@ export const manifest = setupManifest({
   // StartOS 0.4.0.2, not the SDK's default, so the registry hides releases from
   // older servers. Every release from 2026-10-11 on targets 0.4.0.2.
   osVersion: '0.4.0.2',
-  volumes: ['main', 'i2pd'],
+  // `public` carries copies of the RPC cookie and the prune setting for
+  // dependents, the same volume Start9's Bitcoin Core publishes from 31.2:4.
+  // It is never mounted in bitcoind and is not backed up. See main.ts.
+  volumes: ['main', 'i2pd', 'public'],
   images: {
     // Named `bitcoind` rather than `knots`, matching the official package, because
     // nineteen call sites across the actions reference it by that id.
@@ -61,12 +64,13 @@ export const manifest = setupManifest({
     //
     // Carries PR #33, which is the BLAKE2b header support and is still open.
     //
-    // This image is upstream v0.8.2 plus #33, plus our single-flight peer fetch
+    // This image is upstream v0.8.4 plus #33, plus our single-flight peer fetch
     // (a fetch runs once per block, as its own task, so a client that hangs up
-    // no longer discards it). v0.8.2 is upstream's JSON-RPC 2.0 and batch-order
-    // fixes. blake2b.2 advertises NODE_BLAKE2B to peers when this node does:
+    // no longer discards it). v0.8.3 refuses a fetched block with a repeated
+    // transaction (CVE-2012-2459) and v0.8.4 hardens rpcauth. v0.8.2 is
+    // upstream's JSON-RPC 2.0 and batch-order fixes. We also advertise NODE_BLAKE2B to peers when this node does:
     // Knots 29.4.3 silently ignores a peer without it for any block past the
-    // split, so blake2b.1 could not fetch a single pruned post-split block.
+    // split, so v0.8.2-blake2b.1 could not fetch a single pruned post-split block.
     //
     // PR #34 landed in upstream v0.8.1. #34 was two upstream defects rather
     // than anything BLAKE2b-specific, and either one stopped a pruned node's
@@ -85,7 +89,7 @@ export const manifest = setupManifest({
     // us off it now.
     proxy: {
       source: {
-        dockerTag: 'paulscode/btc-rpc-proxy:v0.8.2-blake2b.2',
+        dockerTag: 'paulscode/btc-rpc-proxy:v0.8.4-blake2b.1',
       },
       arch: ['x86_64', 'aarch64'],
     },

@@ -1,5 +1,5 @@
 import { healthFns, TOML } from '@start9labs/start-sdk'
-import { access, rm, writeFile } from 'fs/promises'
+import { access, readFile, rename, rm, writeFile } from 'fs/promises'
 import { request } from 'node:https'
 import { socksHostId, socksPort } from 'tor-startos/startos/utils'
 import { bitcoinConfFile } from './fileModels/bitcoin.conf'
@@ -19,8 +19,11 @@ import {
   mainnetActivationHeight,
   rootDir,
   rpccookiefile,
+  rpcCookieName,
   rpcPort,
   rpcPortPruned,
+  rpcPruneName,
+  rpcVolumeId,
 } from './utils'
 
 // JSON-RPC helper for i2pd's I2PControl API (uses self-signed cert)
@@ -176,11 +179,22 @@ export const main = sdk.setupMain(async ({ effects }) => {
 
   const rpcCookiePath = `${rootDir}/${rpccookiefile}`
 
-  // remove cookie file
-  await rm(`${bitcoindSub.rootfs}${rpcCookiePath}`, {
-    force: true,
-    recursive: true,
-  })
+  // Written through a temp file and a rename, so a dependent never reads half
+  // a cookie.
+  const publish = async (name: string, data: string, mode?: number) => {
+    const path = sdk.volumes[rpcVolumeId].subpath(name)
+    await writeFile(`${path}.tmp`, data, { mode })
+    await rename(`${path}.tmp`, path)
+  }
+
+  // Remove both cookies, bitcoind's and the published copy, so that while
+  // bitcoind is down neither exists. Dependents wait for the cookie to appear.
+  for (const path of [
+    `${bitcoindSub.rootfs}${rpcCookiePath}`,
+    sdk.volumes[rpcVolumeId].subpath(rpcCookieName),
+  ]) {
+    await rm(path, { force: true, recursive: true })
+  }
 
   /**
    * One read-only bitcoin-cli call for the health checks below, parsed. Every
@@ -548,6 +562,24 @@ export const main = sdk.setupMain(async ({ effects }) => {
             message: i18n('Bitcoin did not answer this check within a minute'),
           }),
         ),
+      },
+      requires: ['node'],
+    })
+    // Copies the cookie bitcoind has just written into `public` for dependents,
+    // once the node is ready, as Start9's Bitcoin Core does. The cookie is
+    // 0600, like bitcoind's.
+    .addOneshot('publish-rpc', {
+      subcontainer: null,
+      exec: {
+        fn: async () => {
+          await publish(
+            rpcCookieName,
+            await readFile(`${bitcoindSub.rootfs}${rpcCookiePath}`, 'utf8'),
+            0o600,
+          )
+          await publish(rpcPruneName, String(bitcoinConf.prune ?? 0))
+          return null
+        },
       },
       requires: ['node'],
     })
