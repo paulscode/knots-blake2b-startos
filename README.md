@@ -46,7 +46,7 @@ On StartOS 0.4.1 and newer, an install from this registry with `start-cli` can f
 install; StartOS still checks the signature and the package's integrity:
 
 ```
-start-cli -r https://start9.paulscode.com package install --trust knots-blake2b "=29.5.0:0"
+start-cli -r https://start9.paulscode.com package install --trust knots-blake2b "=29.5.1:0"
 ```
 
 ## How this differs from the official `bitcoind` package
@@ -66,10 +66,14 @@ Verified: this package runs on a box with `bitcoind` and `datum` already install
 ## Upstream
 
 Built from a **pinned commit**, never a branch: `bitcoinknots/bitcoin` @
-`5811235e3f5da687de1ac8ca731331a2fc24a350`, the tag `v29.5.knots20260508` (signed by
-luke-jr, 2026-11-06), Bitcoin Core 29.5 with Knots' fixes on top. Its consensus code,
-chain parameters and BLAKE2b peer rules are those of 29.4.3, the release that added the
-current maturity rule. Recorded as a SHA because a tag can be moved and a SHA cannot. The
+`b4c8f9f4aa5715c98d0d550fc1395c2cc7a416f1`, the tag `v29.5.1.knots20260508` (signed by
+luke-jr, 2026-11-21), Bitcoin Core 29.5 with Knots' fixes on top. Its chain parameters,
+maturity rule and BLAKE2b peer rules are those of 29.4.3, the release that added the
+current maturity rule. One consensus rule differs from 29.5: Knots #520 splits the
+BIP110 (RDTS) rules into separate flags, and in doing so the annex ban now also applies
+to inputs spending coins created before RDTS started, which 29.5 exempted along with the
+other reduced-data rules. A block spending such a coin with an annex is valid to 29.5
+and invalid to 29.5.1. The annex is non-standard, so no ordinary transaction has one. Recorded as a SHA because a tag can be moved and a SHA cannot. The
 BLAKE2b change is [bitcoinknots/bitcoin#359](https://github.com/bitcoinknots/bitcoin/pull/359);
 the opt-in signature hash that gives replay protection is
 [#357](https://github.com/bitcoinknots/bitcoin/pull/357). The long coinbase maturity rule
@@ -89,25 +93,24 @@ as it is tagged. Community builds from other repositories (such as `knots-dev/bi
 and pull requests not in a Knots tag are not shipped, whatever their status in the
 community; they may be built and tested here, as 29.4.3's rc5 was, but not released.
 
-The 29.5 tag is on the `29.x-knots` branch. The 29.4.3 tag before it was not (it sat on
+The 29.5 and 29.5.1 tags are on the `29.x-knots` branch. The 29.4.3 tag before it was not (it sat on
 top of 29.4.2's `58398baf33`), and its consensus code was identical to the knots-dev
 community test build `v29.4.3.knots20260508rc5` (kwsantiago), which this package built
 and tested but did not release while the community decided between maturity proposals.
 
 This package builds the tag **from source**, so the trust model here is a pinned commit
-rather than a signed artifact. 29.5 has a GitHub release with signed tarballs and Guix
-attestations in `bitcoinknots/guix.sigs` from three builders (chrisguida, kwsantiago,
-luke-jr). Switching to signed tarballs (as Retropex's POW package does) is a trust-model
+rather than a signed artifact. 29.5.1 has a GitHub release with signed tarballs and Guix
+attestations in `bitcoinknots/guix.sigs` (nine builders, luke-jr among them). Switching to signed tarballs (as Retropex's POW package does) is a trust-model
 decision that has not been made; the build here is unchanged.
 
 **Versioning.** From `29.4.3:0` the package version is the Knots version it carries
-(`x.y.z`, so 29.5 is `29.5.0`) followed by this package's own revision, which restarts
+(`x.y.z`, so 29.5 is `29.5.0` and 29.5.1 is `29.5.1`) followed by this package's own revision, which restarts
 at 0 for each new Knots release. Knots's datestamp (`knots20260508`) does not fit the
 version format and stays in the release notes. Releases up to `1.0.0:42` used a fixed
 `1.0.0`; `29.4.3:0` sorts above all of them, so updates and dependents' ranges
 (`>=1.0.0:N`) are unaffected. There is no flavor prefix: this package has its own id,
 and a flavored version would fail those unflavored ranges. The Docker image built from
-this repo is tagged with the same version, dotted (`paulscode/knots-blake2b:29.5.0.0`);
+this repo is tagged with the same version, dotted (`paulscode/knots-blake2b:29.5.1.0`);
 the Umbrel app keeps its own fourth number.
 
 **The pin lives in exactly one place: the `KNOTS_REF` ARG default in the

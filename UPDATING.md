@@ -13,7 +13,7 @@ pinned SHA rather than a signer quorum.
 
 ```dockerfile
 ARG KNOTS_REPO=https://github.com/bitcoinknots/bitcoin.git
-ARG KNOTS_REF=5811235e3f5da687de1ac8ca731331a2fc24a350
+ARG KNOTS_REF=b4c8f9f4aa5715c98d0d550fc1395c2cc7a416f1
 ```
 
 It is deliberately **not** a `buildArg` in `startos/manifest/index.ts`. It used to be
@@ -32,7 +32,7 @@ revisions between package versions.
 ```bash
 git ls-remote --tags https://github.com/bitcoinknots/bitcoin.git 'v29.*knots*'
 # then resolve the one you want to a SHA
-git rev-parse v29.5.knots20260508^{commit}
+git rev-parse v29.5.1.knots20260508^{commit}
 ```
 
 Choosing a tag is a consensus decision, not a routine bump. What matters:

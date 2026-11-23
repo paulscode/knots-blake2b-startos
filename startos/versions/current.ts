@@ -1,7 +1,9 @@
 import { IMPOSSIBLE, VersionInfo } from '@start9labs/start-sdk'
 
 const notes = [
-  "Updates the RPC proxy, which runs when pruning is on, with upstream's security fixes. It now refuses a block from a peer that repeats one of its transactions, which passed every check it made before (CVE-2012-2459). It also compares RPC passwords in constant time and waits a moment before answering a wrong one.",
+  'Updates Bitcoin Knots to 29.5.1, with security fixes: a peer could stall the node with orphan transactions (CVE-2026-117348), a crafted wallet name could run a command through Wallet Notify, and a rare error in the UTXO set hash. A node with few peers on the BLAKE2b chain now waits for them instead of cycling through addresses that cannot serve it. Public keys now count toward the data carrier limit unless a signature is checked against them, so decoy keys can no longer carry data past it.',
+  'One consensus rule tightens: the ban on the taproot annex now also applies when spending bitcoins created before the data rules (RDTS) started, which 29.5 exempted. The annex is non-standard, so this affects no ordinary transaction. The coinbase maturity rules are unchanged.',
+  "From 29.5.0:2: Updates the RPC proxy, which runs when pruning is on, with upstream's security fixes. It now refuses a block from a peer that repeats one of its transactions, which passed every check it made before (CVE-2012-2459). It also compares RPC passwords in constant time and waits a moment before answering a wrong one.",
   'Services that use this node can now read its RPC login from a separate volume that holds only that, as they can with Bitcoin Core, instead of mounting the whole data directory. Nothing changes for services already installed.',
   "From 29.5.0:1: Fixes Stop, updates and restarts that never finish. A status check that sent the node a request that never came back stayed at Starting from then on, and it also kept the service from stopping: the RPC proxy and I2P shut down, but the node itself was never asked to, so an update sat at Installing 80% and a restart of the server hung. Each check now gives up on a request after a minute and asks again, so it can no longer hold up a stop. This does not shorten the node's own shutdown, which still has its full 5 minutes to save its data.",
   'Before updating from a version older than 29.5.0:1, press Stop and wait until it shows Stopped. If it does not stop within 10 minutes, or a status check has been stuck at Starting for a long time, the version you are running has this problem: restart the server, and update once it is back up. If the restart also hangs, turn the server off and on again. The node recovers from that, though its next start can take longer while it catches up on what it had not yet saved.',
@@ -16,7 +18,7 @@ const notes = [
 ].join(' ')
 
 export const current = VersionInfo.of({
-  version: '29.5.0:2',
+  version: '29.5.1:0',
   releaseNotes: {
     en_US: notes,
     es_ES: notes,
@@ -26,7 +28,7 @@ export const current = VersionInfo.of({
   },
   migrations: {
     // Nothing to migrate: StartOS creates the `public` volume when the
-    // container starts, and 29.5 reads 29.4.3's data directory as it is.
+    // container starts, and 29.5.1 reads 29.4.3's data directory as it is.
     up: async ({ effects }) => {},
     down: IMPOSSIBLE,
   },
